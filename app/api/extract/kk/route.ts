@@ -2,26 +2,19 @@ import { NextResponse } from "next/server";
 
 import { extractKkDocument } from "@/lib/extraction/kk-extraction";
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
 
+    // Validasi file
     if (!(file instanceof File)) {
       return NextResponse.json(
         {
           status: "error",
-          message: "File KK tidak ditemukan.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (file.type !== "application/pdf") {
-      return NextResponse.json(
-        {
-          status: "error",
-          message: "File harus berformat PDF.",
+          message: "File PDF tidak ditemukan.",
         },
         { status: 400 }
       );
@@ -31,12 +24,33 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           status: "error",
-          message: "File PDF kosong.",
+          message: "File yang dikirim kosong.",
         },
         { status: 400 }
       );
     }
 
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: "Ukuran file terlalu besar. Maksimal 10 MB.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (file.type !== "application/pdf") {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: "Format file harus PDF.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Ekstraksi dokumen
     const result = await extractKkDocument(file);
 
     return NextResponse.json({
@@ -44,13 +58,13 @@ export async function POST(request: Request) {
       model_used: result.modelUsed,
       data: result.data,
     });
-  } catch (error: unknown) {
-    console.error("[API KK Extraction]", error);
+  } catch (error) {
+    console.error("[API /extract/kk]", error);
 
     const message =
       error instanceof Error
         ? error.message
-        : "Terjadi kesalahan saat memproses dokumen KK.";
+        : "Terjadi kesalahan saat memproses dokumen.";
 
     return NextResponse.json(
       {

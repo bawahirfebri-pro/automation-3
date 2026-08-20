@@ -1,17 +1,105 @@
-export default function ResultAkta({ data }: { data: any }) {
+import type { AktaResult } from "@/types/akta";
+
+interface ResultAktaProps {
+  data: AktaResult | null;
+}
+
+export default function ResultAkta({
+  data,
+}: ResultAktaProps) {
   if (!data) return null;
 
+  const fields = [
+    {
+      label: "No. Akta Kelahiran",
+      value: data.no_akta_kelahiran,
+      mono: true,
+      highlight: true,
+    },
+    {
+      label: "Nama Anak",
+      value: data.nama_anak,
+      highlight: true,
+    },
+    {
+      label: "Tempat Lahir",
+      value: data.tempat_lahir,
+    },
+    {
+      label: "Tanggal Lahir",
+      value: data.tanggal_lahir,
+      mono: true,
+    },
+    {
+      label: "Nama Ayah",
+      value: data.nama_ayah,
+    },
+    {
+      label: "Nama Ibu",
+      value: data.nama_ibu,
+    },
+  ];
+
   return (
-    <div className="p-6 border border-gray-200 bg-white rounded-xl shadow-sm mb-8 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-2 h-full bg-green-500"></div>
-      <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Informasi Akta Kelahiran</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm p-5 bg-green-50/40 rounded-xl border border-green-100">
-        <p><span className="font-semibold text-gray-600 inline-block w-36">No. Akta Kelahiran</span>: <span className="font-mono text-green-700 font-bold text-base">{data.no_akta_kelahiran || '-'}</span></p>
-        <p><span className="font-semibold text-gray-600 inline-block w-36">Nama Anak</span>: <span className="font-bold text-gray-800">{data.nama_anak || '-'}</span></p>
-        <p><span className="font-semibold text-gray-600 inline-block w-36">Tempat Lahir</span>: <span>{data.tempat_lahir || '-'}</span></p>
-        <p><span className="font-semibold text-gray-600 inline-block w-36">Tanggal Lahir</span>: <span className="font-mono">{data.tanggal_lahir || '-'}</span></p>
-        <p><span className="font-semibold text-gray-600 inline-block w-36">Nama Ayah</span>: <span>{data.nama_ayah || '-'}</span></p>
-        <p><span className="font-semibold text-gray-600 inline-block w-36">Nama Ibu</span>: <span>{data.nama_ibu || '-'}</span></p>
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-5 w-5"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6 2.75h9.5L20 7.25V21a.25.25 0 0 1-.25.25H6A1.25 1.25 0 0 1 4.75 20V4A1.25 1.25 0 0 1 6 2.75Z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 2.75V7h4.25M8 11h8M8 14.5h8M8 18h5"
+            />
+          </svg>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900">
+            Informasi Akta Kelahiran
+          </h2>
+
+          <p className="text-xs text-gray-500">
+            Data hasil ekstraksi dokumen
+          </p>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="grid grid-cols-1 divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50/50 md:grid-cols-2 md:divide-x md:divide-y-0">
+          {fields.map((field) => (
+            <div
+              key={field.label}
+              className="flex min-h-[64px] flex-col justify-center px-4 py-3"
+            >
+              <span className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                {field.label}
+              </span>
+
+              <span
+                className={`text-sm ${
+                  field.mono ? "font-mono" : ""
+                } ${
+                  field.highlight
+                    ? "font-semibold text-gray-900"
+                    : "text-gray-700"
+                }`}
+              >
+                {field.value || "-"}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
