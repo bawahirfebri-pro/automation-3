@@ -1,0 +1,137 @@
+import type { KkResult } from "@/types/kk";
+import { formatTeksTampilan } from "@/lib/text-formatter";
+
+interface KkSummaryProps {
+  data: KkResult | null;
+  modelUsed?: string;
+}
+
+export default function KkSummary({
+  data,
+  modelUsed,
+}: KkSummaryProps) {
+  if (!data) {
+    return (
+      <section className="col-span-12 lg:col-span-6">
+        <div className="flex h-full min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white">
+          <div className="px-6 text-center">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                className="h-5 w-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 5.75A2.75 2.75 0 0 1 6.5 3h11A2.75 2.75 0 0 1 20.25 5.75v12.5A2.75 2.75 0 0 1 17.5 21h-11a2.75 2.75 0 0 1-2.75-2.75V5.75Z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M7.5 7.5h9M7.5 11h9M7.5 14.5h5"
+                />
+              </svg>
+            </div>
+
+            <p className="text-sm font-medium text-gray-600">
+              KK belum diekstrak
+            </p>
+
+            <p className="mt-1 text-xs text-gray-400">
+              Upload dan ekstrak dokumen KK untuk menampilkan datanya.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const fields = [
+    { label: "Nomor KK", value: data.no_kk, mono: true, highlight: true },
+    { label: "Tanggal Terbit", value: data.tanggal_dikeluarkan },
+    { label: "Alamat", value: formatTeksTampilan(data.alamat) },
+    { label: "RT / RW", value: `${data.rt || "-"} / ${data.rw || "-"}` },
+    { label: "Kelurahan / Desa", value: formatTeksTampilan(data.kelurahan) },
+    { label: "Kecamatan", value: formatTeksTampilan(data.kecamatan) },
+    { label: "Kabupaten / Kota", value: formatTeksTampilan(data.kabupaten_kota) },
+    { label: "Provinsi", value: formatTeksTampilan(data.provinsi) },
+    { label: "Kode Pos", value: data.kode_pos },
+  ];
+
+  return (
+    <section className="col-span-12 lg:col-span-6">
+      <div className="h-full overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <div className="flex min-h-[73px] flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="h-5 w-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 5.75A2.75 2.75 0 0 1 6.5 3h11A2.75 2.75 0 0 1 20.25 5.75v12.5A2.75 2.75 0 0 1 17.5 21h-11a2.75 2.75 0 0 1-2.75-2.75V5.75Z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M7.5 7.5h9M7.5 11h9M7.5 14.5h5"
+                />
+              </svg>
+            </div>
+
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                Informasi Kartu Keluarga
+              </h2>
+              <p className="text-xs text-gray-500">
+                Data hasil ekstraksi dokumen
+              </p>
+            </div>
+          </div>
+
+          {modelUsed && (
+            <div className="inline-flex w-fit items-center gap-1.5 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700">
+              <span>✦</span>
+              <span>AI</span>
+              <span className="text-violet-300">·</span>
+              <span className="font-mono">{modelUsed}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="p-4">
+          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-gray-100 bg-gray-100 sm:grid-cols-2">
+            {fields.map((field) => (
+              <div
+                key={field.label}
+                className="flex min-h-[58px] flex-col justify-center bg-gray-50/80 px-4 py-2.5"
+              >
+                <span className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                  {field.label}
+                </span>
+
+                <span
+                  className={`text-sm ${field.mono ? "font-mono" : ""} ${
+                    field.highlight
+                      ? "font-semibold text-gray-900"
+                      : "text-gray-700"
+                  }`}
+                >
+                  {field.value || "-"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

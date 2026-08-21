@@ -1,8 +1,9 @@
 export interface AktaResult {
-  no_akta_kelahiran?: string | null;
-  nama_anak?: string | null;
-  tempat_lahir?: string | null;
-  tanggal_lahir?: string | null;
-  nama_ayah?: string | null;
-  nama_ibu?: string | null;
+  no_akta_kelahiran: string;
+  nama_anak: string;
+  anak_ke: string;
+  tempat_lahir: string;
+  tanggal_lahir: string;
+  nama_ayah: string;
+  nama_ibu: string;
 }

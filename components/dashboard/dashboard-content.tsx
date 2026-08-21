@@ -6,9 +6,11 @@ interface DashboardContentProps {
 
 export default function DashboardContent({
   children,
-}: DashboardContentProps) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mx-auto grid max-w-[1600px] grid-cols-12 gap-6">
+    <div className="grid grid-cols-12 gap-4 lg:gap-5">
       {children}
     </div>
   );

@@ -1,103 +1,166 @@
-import { formatTeksResmi } from './text-formatter';
+import type { GoogleSpreadsheetRow } from "google-spreadsheet";
+import type { AktaResult } from "@/types/akta";
+import type { KkResult, KkAnggota } from "@/types/kk";
+import { formatTeksResmi } from "@/lib/text-formatter";
 
-export function mapDataToRow(targetRow: any, extractedData: any, aktaData: any, namaSiswaTarget: string) {
-    const listAnggota = extractedData?.anggota_keluarga || [];
+const formatGolonganDarah = (
+  value: string | null | undefined
+): string => {
+  const golonganDarah = value?.trim() || "";
 
-    // SINKRONISASI DATA AKTA KELAHIRAN
-    if (aktaData && aktaData.no_akta_kelahiran) {
-        try { targetRow.set('No. Akta Kelahiran', aktaData.no_akta_kelahiran.toUpperCase()); } catch (e) { }
-    }
+  if (!golonganDarah) return "";
+  if (golonganDarah.toLowerCase() === "tidak tahu") return "Tidak Tahu";
 
-    // SINKRONISASI DATA KARTU KELUARGA
-    if (extractedData && listAnggota.length > 0) {
-        const dataMurid = listAnggota.find((ang: any) => ang.nama_lengkap?.toLowerCase().trim() === namaSiswaTarget)
-            || listAnggota.find((ang: any) => ang.status_hubungan_dalam_keluarga?.toLowerCase().includes('anak'))
-            || listAnggota[0] || {};
+  return golonganDarah.toUpperCase();
+};
 
-        // Data Murid Inti
-        targetRow.set('Nama', formatTeksResmi(dataMurid.nama_lengkap));
-        targetRow.set('NIK', dataMurid.nik || '');
-        targetRow.set('Jenis Kelamin', formatTeksResmi(dataMurid.jenis_kelamin));
-        targetRow.set('Tempat Lahir', formatTeksResmi(dataMurid.tempat_lahir));
-        targetRow.set('Tanggal Lahir', dataMurid.tanggal_lahir || '');
-        targetRow.set('Agama', formatTeksResmi(dataMurid.agama));
-        targetRow.set('Golongan Darah', dataMurid.golongan_darah && dataMurid.golongan_darah.toLowerCase() !== 'tidak tahu' ? dataMurid.golongan_darah.toUpperCase() : (dataMurid.golongan_darah ? 'Tidak Tahu' : ''));
-        targetRow.set('Nama Ayah Kandung', formatTeksResmi(dataMurid.nama_ayah));
-        targetRow.set('Nama Ibu Kandung', formatTeksResmi(dataMurid.nama_ibu));
+const setRowValue = (
+  targetRow: GoogleSpreadsheetRow,
+  column: string,
+  value: string
+) => {
+  try {
+    targetRow.set(column, value);
+  } catch (error) {
+    console.error(
+      `[Sheet Mapper] Gagal mengisi kolom "${column}":`,
+      error
+    );
+  }
+};
 
-        // Data Alamat KK
-        targetRow.set('No. Kartu Keluarga', extractedData.no_kk || '');
-        targetRow.set('Alamat', formatTeksResmi(extractedData.alamat));
-        targetRow.set('RT', formatTeksResmi(extractedData.rt));
-        targetRow.set('RW', formatTeksResmi(extractedData.rw));
-        targetRow.set('Desa/Kelurahan', formatTeksResmi(extractedData.kelurahan));
-        targetRow.set('Kecamatan', formatTeksResmi(extractedData.kecamatan));
-        targetRow.set('Kabupaten/Kota', formatTeksResmi(extractedData.kabupaten_kota));
-        targetRow.set('Provinsi', formatTeksResmi(extractedData.provinsi));
-        targetRow.set('Kode Pos', extractedData.kode_pos || '');
-        targetRow.set('Tanggal Terbit KK', extractedData.tanggal_dikeluarkan || '');
+const findDataMurid = (
+  listAnggota: KkAnggota[],
+  namaSiswaTarget: string
+): KkAnggota | undefined => {
+  return (
+    listAnggota.find(
+      (anggota) =>
+        anggota.nama_lengkap.toLowerCase().trim() === namaSiswaTarget
+    ) ||
+    listAnggota.find((anggota) =>
+      anggota.status_hubungan_dalam_keluarga
+        .toLowerCase()
+        .includes("anak")
+    ) ||
+    listAnggota[0]
+  );
+};
 
-        // Cari Data Ayah & Ibu (Diperbaiki)
-        const dataAyahKK = listAnggota.find((ang: any) => {
-            const status = ang.status_hubungan_dalam_keluarga?.toLowerCase() || '';
-            const jk = ang.jenis_kelamin?.toLowerCase() || '';
+const findDataAyah = (
+  listAnggota: KkAnggota[]
+): KkAnggota | undefined => {
+  return listAnggota.find((anggota) => {
+    const status = anggota.status_hubungan_dalam_keluarga.toLowerCase();
+    const jenisKelamin = anggota.jenis_kelamin.toLowerCase();
 
-            // Ayah = Laki-laki yang menjadi Kepala Keluarga, ATAU berstatus Suami
-            return (status.includes('kepala keluarga') && jk.includes('laki')) || status.includes('suami');
-        });
+    return (
+      (status.includes("kepala keluarga") &&
+        jenisKelamin.includes("laki")) ||
+      status.includes("suami")
+    );
+  });
+};
 
-        const dataIbuKK = listAnggota.find((ang: any) => {
-            const status = ang.status_hubungan_dalam_keluarga?.toLowerCase() || '';
-            const jk = ang.jenis_kelamin?.toLowerCase() || '';
+const findDataIbu = (
+  listAnggota: KkAnggota[]
+): KkAnggota | undefined => {
+  return listAnggota.find((anggota) => {
+    const status = anggota.status_hubungan_dalam_keluarga.toLowerCase();
+    const jenisKelamin = anggota.jenis_kelamin.toLowerCase();
 
-            // Ibu = Perempuan yang menjadi Kepala Keluarga, ATAU berstatus Istri/Isteri
-            return (status.includes('kepala keluarga') && jk.includes('perempuan')) || status.includes('istri') || status.includes('isteri');
-        });
+    return (
+      (status.includes("kepala keluarga") &&
+        jenisKelamin.includes("perempuan")) ||
+      status.includes("istri") ||
+      status.includes("isteri")
+    );
+  });
+};
 
-        // Mapping Data Ayah
-        if (dataAyahKK) {
-            try {
-                targetRow.set('Nama Ayah', formatTeksResmi(dataAyahKK.nama_lengkap));
-                targetRow.set('NIK Ayah', dataAyahKK.nik || '');
-                targetRow.set('Tempat Lahir Ayah', formatTeksResmi(dataAyahKK.tempat_lahir));
-                targetRow.set('Tanggal Lahir Ayah', dataAyahKK.tanggal_lahir || '');
-                targetRow.set('Agama Ayah', formatTeksResmi(dataAyahKK.agama));
-                targetRow.set('Golongan Darah Ayah', dataAyahKK.golongan_darah && dataAyahKK.golongan_darah.toLowerCase() !== 'tidak tahu' ? dataAyahKK.golongan_darah.toUpperCase() : (dataAyahKK.golongan_darah ? 'Tidak Tahu' : ''));
-                targetRow.set('Nama Ayah dari Ayah', formatTeksResmi(dataAyahKK.nama_ayah));
-                targetRow.set('Nama Ibu dari Ayah', formatTeksResmi(dataAyahKK.nama_ibu));
-            } catch (e) { }
-        }
+export function mapDataToRow(
+  targetRow: GoogleSpreadsheetRow,
+  extractedData: KkResult | null,
+  aktaData: AktaResult | null,
+  namaSiswaTarget: string
+) {
+  const listAnggota = extractedData?.anggota_keluarga ?? [];
 
-        // Mapping Data Ibu
-        if (dataIbuKK) {
-            try {
-                targetRow.set('Nama Ibu', formatTeksResmi(dataIbuKK.nama_lengkap));
-                targetRow.set('NIK Ibu', dataIbuKK.nik || '');
-                targetRow.set('Tempat Lahir Ibu', formatTeksResmi(dataIbuKK.tempat_lahir));
-                targetRow.set('Tanggal Lahir Ibu', dataIbuKK.tanggal_lahir || '');
-                targetRow.set('Agama Ibu', formatTeksResmi(dataIbuKK.agama));
-                targetRow.set('Golongan Darah Ibu', dataIbuKK.golongan_darah && dataIbuKK.golongan_darah.toLowerCase() !== 'tidak tahu' ? dataIbuKK.golongan_darah.toUpperCase() : (dataIbuKK.golongan_darah ? 'Tidak Tahu' : ''));
-                targetRow.set('Nama Ayah dari Ibu', formatTeksResmi(dataIbuKK.nama_ayah));
-                targetRow.set('Nama Ibu dari Ibu', formatTeksResmi(dataIbuKK.nama_ibu));
-            } catch (e) { }
-        }
+  // Akta
+  if (aktaData) {
+    setRowValue(targetRow, "No. Akta Kelahiran", aktaData.no_akta_kelahiran || "");
+    setRowValue(targetRow, "Anak ke", aktaData.anak_ke || "");
+  }
 
-        // Mapping Anggota Lainnya (Maks 10)
-        listAnggota.forEach((ang: any, i: number) => {
-            const n = i + 1;
-            if (n <= 10) {
-                try { targetRow!.set(`Nama Anggota ${n}`, formatTeksResmi(ang.nama_lengkap)); } catch (e) { }
-                try { targetRow!.set(`NIK Anggota ${n}`, ang.nik || ''); } catch (e) { }
-                try { targetRow!.set(`Status Anggota ${n}`, formatTeksResmi(ang.status_hubungan_dalam_keluarga)); } catch (e) { }
-                try { targetRow!.set(`Tempat Lahir Anggota ${n}`, formatTeksResmi(ang.tempat_lahir)); } catch (e) { }
-                try { targetRow!.set(`Tanggal Lahir Anggota ${n}`, ang.tanggal_lahir || ''); } catch (e) { }
-                try { targetRow!.set(`Agama Anggota ${n}`, formatTeksResmi(ang.agama)); } catch (e) { }
-                try { targetRow!.set(`Golongan Darah Anggota ${n}`, ang.golongan_darah && ang.golongan_darah.toLowerCase() !== 'tidak tahu' ? ang.golongan_darah.toUpperCase() : (ang.golongan_darah ? 'Tidak Tahu' : '')); } catch (e) { }
-                try { targetRow!.set(`Pendidikan Anggota ${n}`, formatTeksResmi(ang.pendidikan)); } catch (e) { }
-                try { targetRow!.set(`Pekerjaan Anggota ${n}`, formatTeksResmi(ang.jenis_pekerjaan)); } catch (e) { }
-                try { targetRow!.set(`Nama Ayah dari Anggota ${n}`, formatTeksResmi(ang.nama_ayah)); } catch (e) { }
-                try { targetRow!.set(`Nama Ibu dari Anggota ${n}`, formatTeksResmi(ang.nama_ibu)); } catch (e) { }
-            }
-        });
-    }
+  if (!extractedData || listAnggota.length === 0) return;
+
+  const dataMurid = findDataMurid(listAnggota, namaSiswaTarget);
+
+  if (!dataMurid) return;
+
+  // Murid
+  setRowValue(targetRow, "Nama", formatTeksResmi(dataMurid.nama_lengkap));
+  setRowValue(targetRow, "NIK", dataMurid.nik || "");
+  setRowValue(targetRow, "Jenis Kelamin", formatTeksResmi(dataMurid.jenis_kelamin));
+  setRowValue(targetRow, "Tempat Lahir", formatTeksResmi(dataMurid.tempat_lahir));
+  setRowValue(targetRow, "Tanggal Lahir", dataMurid.tanggal_lahir || "");
+  setRowValue(targetRow, "Agama", formatTeksResmi(dataMurid.agama));
+  setRowValue(targetRow, "Golongan Darah", formatGolonganDarah(dataMurid.golongan_darah));
+  setRowValue(targetRow, "Nama Ayah Kandung", formatTeksResmi(dataMurid.nama_ayah));
+  setRowValue(targetRow, "Nama Ibu Kandung", formatTeksResmi(dataMurid.nama_ibu));
+
+  // KK
+  setRowValue(targetRow, "No. Kartu Keluarga", extractedData.no_kk || "");
+  setRowValue(targetRow, "Alamat", formatTeksResmi(extractedData.alamat));
+  setRowValue(targetRow, "RT", formatTeksResmi(extractedData.rt));
+  setRowValue(targetRow, "RW", formatTeksResmi(extractedData.rw));
+  setRowValue(targetRow, "Desa/Kelurahan", formatTeksResmi(extractedData.kelurahan));
+  setRowValue(targetRow, "Kecamatan", formatTeksResmi(extractedData.kecamatan));
+  setRowValue(targetRow, "Kabupaten/Kota", formatTeksResmi(extractedData.kabupaten_kota));
+  setRowValue(targetRow, "Provinsi", formatTeksResmi(extractedData.provinsi));
+  setRowValue(targetRow, "Kode Pos", extractedData.kode_pos || "");
+  setRowValue(targetRow, "Tanggal Terbit KK", extractedData.tanggal_dikeluarkan || "");
+
+  const dataAyahKK = findDataAyah(listAnggota);
+  const dataIbuKK = findDataIbu(listAnggota);
+
+  // Ayah
+  if (dataAyahKK) {
+    setRowValue(targetRow, "Nama Ayah", formatTeksResmi(dataAyahKK.nama_lengkap));
+    setRowValue(targetRow, "NIK Ayah", dataAyahKK.nik || "");
+    setRowValue(targetRow, "Tempat Lahir Ayah", formatTeksResmi(dataAyahKK.tempat_lahir));
+    setRowValue(targetRow, "Tanggal Lahir Ayah", dataAyahKK.tanggal_lahir || "");
+    setRowValue(targetRow, "Agama Ayah", formatTeksResmi(dataAyahKK.agama));
+    setRowValue(targetRow, "Golongan Darah Ayah", formatGolonganDarah(dataAyahKK.golongan_darah));
+    setRowValue(targetRow, "Nama Ayah dari Ayah", formatTeksResmi(dataAyahKK.nama_ayah));
+    setRowValue(targetRow, "Nama Ibu dari Ayah", formatTeksResmi(dataAyahKK.nama_ibu));
+  }
+
+  // Ibu
+  if (dataIbuKK) {
+    setRowValue(targetRow, "Nama Ibu", formatTeksResmi(dataIbuKK.nama_lengkap));
+    setRowValue(targetRow, "NIK Ibu", dataIbuKK.nik || "");
+    setRowValue(targetRow, "Tempat Lahir Ibu", formatTeksResmi(dataIbuKK.tempat_lahir));
+    setRowValue(targetRow, "Tanggal Lahir Ibu", dataIbuKK.tanggal_lahir || "");
+    setRowValue(targetRow, "Agama Ibu", formatTeksResmi(dataIbuKK.agama));
+    setRowValue(targetRow, "Golongan Darah Ibu", formatGolonganDarah(dataIbuKK.golongan_darah));
+    setRowValue(targetRow, "Nama Ayah dari Ibu", formatTeksResmi(dataIbuKK.nama_ayah));
+    setRowValue(targetRow, "Nama Ibu dari Ibu", formatTeksResmi(dataIbuKK.nama_ibu));
+  }
+
+  // Anggota keluarga
+  listAnggota.slice(0, 10).forEach((anggota, index) => {
+    const nomor = index + 1;
+    setRowValue(targetRow, `Nama Anggota ${nomor}`, formatTeksResmi(anggota.nama_lengkap));
+    setRowValue(targetRow, `NIK Anggota ${nomor}`, anggota.nik || "");
+    setRowValue(targetRow, `Status Anggota ${nomor}`, formatTeksResmi(anggota.status_hubungan_dalam_keluarga));
+    setRowValue(targetRow, `Tempat Lahir Anggota ${nomor}`, formatTeksResmi(anggota.tempat_lahir));
+    setRowValue(targetRow, `Tanggal Lahir Anggota ${nomor}`, anggota.tanggal_lahir || "");
+    setRowValue(targetRow, `Agama Anggota ${nomor}`, formatTeksResmi(anggota.agama));
+    setRowValue(targetRow, `Golongan Darah Anggota ${nomor}`, formatGolonganDarah(anggota.golongan_darah));
+    setRowValue(targetRow, `Pendidikan Anggota ${nomor}`, formatTeksResmi(anggota.pendidikan));
+    setRowValue(targetRow, `Pekerjaan Anggota ${nomor}`, formatTeksResmi(anggota.jenis_pekerjaan));
+    setRowValue(targetRow, `Nama Ayah dari Anggota ${nomor}`, formatTeksResmi(anggota.nama_ayah));
+    setRowValue(targetRow, `Nama Ibu dari Anggota ${nomor}`, formatTeksResmi(anggota.nama_ibu));
+  });
 }

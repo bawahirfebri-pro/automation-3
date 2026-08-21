@@ -36,7 +36,6 @@ async function requestExtraction<T>(
   endpoint: string
 ): Promise<ApiSuccessResponse<T>> {
   const formData = new FormData();
-
   formData.append("file", file);
 
   let response: Response;
@@ -62,10 +61,7 @@ async function requestExtraction<T>(
     );
   }
 
-  if (
-    !response.ok ||
-    data.status !== "success"
-  ) {
+  if (!response.ok || data.status !== "success") {
     const message =
       data.status === "error"
         ? data.message || data.error

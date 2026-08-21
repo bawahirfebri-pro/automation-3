@@ -1,7 +1,5 @@
-import type { AktaResult } from "./akta";
-import type { KkResult } from "./kk";
-
-export type DocumentType = "kk" | "akta";
+import type { AktaResult } from "@/types/akta";
+import type { KkResult } from "@/types/kk";
 
 export type ExtractionResult =
   | {

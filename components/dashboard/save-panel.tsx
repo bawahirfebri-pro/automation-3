@@ -20,9 +20,9 @@ export default function SavePanel({
       <SaveSection
         saving={saving}
         saveMessage={saveMessage}
-        onSave={onSave}
         hasData={hasData}
         warnings={warnings}
+        onSave={onSave}
       />
     </section>
   );
