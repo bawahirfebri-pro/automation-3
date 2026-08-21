@@ -10,6 +10,31 @@ const normalizeName = (value: string): string => {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 };
 
+function formatJenisKelamin(value: string): string {
+  const normalized = value?.trim().toLowerCase().replace(/\s+/g, " ") || "";
+
+  if (normalized.includes("laki")) return "L";
+  if (normalized.includes("perempuan")) return "P";
+
+  return "-";
+}
+
+function getJenisKelaminBadgeClass(
+  value: string | null | undefined
+): string {
+  const gender = value?.trim().toLowerCase() || "";
+
+  if (gender === "l" || gender.includes("laki")) {
+    return "bg-blue-50 text-blue-600";
+  }
+
+  if (gender === "p" || gender.includes("perempuan")) {
+    return "bg-rose-50 text-rose-600";
+  }
+
+  return "bg-gray-100 text-gray-500";
+}
+
 export default function KkMembers({
   data,
   studentName,
@@ -139,7 +164,9 @@ export default function KkMembers({
                     normalizedStudentName !== "" &&
                     normalizedMemberName === normalizedStudentName;
 
-                  const stickyBackground = isTargetStudent ? "bg-blue-50" : "bg-white";
+                  const stickyBackground = isTargetStudent
+                    ? "bg-blue-50"
+                    : "bg-white";
 
                   return (
                     <tr
@@ -171,14 +198,14 @@ export default function KkMembers({
                       </td>
 
                       <td className="px-4 py-3 text-center">
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-gray-600">
-                          {anggota.jenis_kelamin === "Laki-laki"
-                            ? "L"
-                            : anggota.jenis_kelamin === "Perempuan"
-                              ? "P"
-                              : "-"}
-                        </span>
-                      </td>
+  <span
+    className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${getJenisKelaminBadgeClass(
+      anggota.jenis_kelamin
+    )}`}
+  >
+    {formatJenisKelamin(anggota.jenis_kelamin)}
+  </span>
+</td>
 
                       <td className="px-4 py-3 text-gray-600">
                         {formatTeksTampilan(anggota.tempat_lahir)}

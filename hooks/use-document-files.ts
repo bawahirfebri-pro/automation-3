@@ -1,9 +1,4 @@
 import { useState } from "react";
-import { extractStudentNameFromFilename } from "@/lib/document-name";
-
-interface UseDocumentFilesOptions {
-  onStudentChange?: () => void;
-}
 
 interface UseDocumentFilesReturn {
   files: File[];
@@ -14,9 +9,11 @@ interface UseDocumentFilesReturn {
   clearFiles: () => void;
 }
 
-export function useDocumentFiles({
-  onStudentChange,
-}: UseDocumentFilesOptions = {}): UseDocumentFilesReturn {
+function getFileKey(file: File): string {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+export function useDocumentFiles(): UseDocumentFilesReturn {
   const [files, setFiles] = useState<File[]>([]);
 
   const handleFileChange = (
@@ -24,45 +21,17 @@ export function useDocumentFiles({
   ) => {
     const selectedFiles = event.target.files;
 
-    if (!selectedFiles?.length) {
-      return;
-    }
+    if (!selectedFiles?.length) return;
 
     const newFiles = Array.from(selectedFiles);
 
     setFiles((previousFiles) => {
-      if (previousFiles.length === 0) {
-        return newFiles;
-      }
-
-      const existingStudentName =
-        extractStudentNameFromFilename(
-          previousFiles[0].name
-        );
-
-      const newStudentName =
-        extractStudentNameFromFilename(
-          newFiles[0].name
-        );
-
-      // Siswa berbeda → ganti seluruh dokumen dan reset hasil lama
-      if (existingStudentName !== newStudentName) {
-        onStudentChange?.();
-        return newFiles;
-      }
-
-      // Siswa sama → pertahankan dokumen sebelumnya
-      const existingNames = new Set(
-        previousFiles.map((file) =>
-          file.name.toLowerCase()
-        )
+      const existingKeys = new Set(
+        previousFiles.map((file) => getFileKey(file))
       );
 
       const uniqueFiles = newFiles.filter(
-        (file) =>
-          !existingNames.has(
-            file.name.toLowerCase()
-          )
+        (file) => !existingKeys.has(getFileKey(file))
       );
 
       return [
@@ -79,15 +48,13 @@ export function useDocumentFiles({
   ) => {
     setFiles((previousFiles) =>
       previousFiles.filter(
-        (_, index) =>
-          index !== indexToRemove
+        (_, index) => index !== indexToRemove
       )
     );
   };
 
   const clearFiles = () => {
     setFiles([]);
-    onStudentChange?.();
   };
 
   return {

@@ -2,6 +2,7 @@ import type { AktaResult } from "@/types/akta";
 import type { KkResult } from "@/types/kk";
 
 export interface SaveToSheetParams {
+  rowIndex: number;
   extractedData: KkResult | null;
   aktaData: AktaResult | null;
   fileName: string;
@@ -25,13 +26,27 @@ export type SaveToSheetResponse =
 export async function saveToSheet(
   params: SaveToSheetParams
 ): Promise<SaveToSheetResponse> {
-  const response = await fetch("/api/update-sheet", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
-  });
+  const {
+    rowIndex,
+    extractedData,
+    aktaData,
+    fileName,
+  } = params;
+
+  const response = await fetch(
+    `/api/students/${rowIndex}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        extractedData,
+        aktaData,
+        fileName,
+      }),
+    }
+  );
 
   let data: SaveToSheetResponse;
 

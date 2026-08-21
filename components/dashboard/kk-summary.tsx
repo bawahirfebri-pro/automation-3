@@ -13,7 +13,7 @@ export default function KkSummary({
   if (!data) {
     return (
       <section className="col-span-12 lg:col-span-6">
-        <div className="flex h-full min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white">
+        <div className="flex min-h-[408px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white">
           <div className="px-6 text-center">
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
               <svg
@@ -63,9 +63,9 @@ export default function KkSummary({
 
   return (
     <section className="col-span-12 lg:col-span-6">
-      <div className="h-full overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        <div className="flex min-h-[73px] flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+      <div className="min-h-[408px] overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <div className="flex min-h-[73px] items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
               <svg
                 viewBox="0 0 24 24"
@@ -87,10 +87,11 @@ export default function KkSummary({
               </svg>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-semibold text-gray-900">
                 Informasi Kartu Keluarga
               </h2>
+
               <p className="text-xs text-gray-500">
                 Data hasil ekstraksi dokumen
               </p>
@@ -98,11 +99,13 @@ export default function KkSummary({
           </div>
 
           {modelUsed && (
-            <div className="inline-flex w-fit items-center gap-1.5 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700">
-              <span>✦</span>
+            <div className="inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-100 bg-violet-50 px-2 py-1 text-[10px] font-medium text-violet-700">
+              <span className="text-[9px]">✦</span>
               <span>AI</span>
               <span className="text-violet-300">·</span>
-              <span className="font-mono">{modelUsed}</span>
+              <span className="max-w-[120px] truncate font-mono">
+                {modelUsed}
+              </span>
             </div>
           )}
         </div>

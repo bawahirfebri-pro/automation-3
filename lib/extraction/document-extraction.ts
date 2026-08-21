@@ -3,9 +3,12 @@ import type { KkResult } from "@/types/kk";
 import type { ExtractionResult } from "@/types/extraction";
 
 const API_ENDPOINTS = {
+  classify: "/api/extract/classify",
   kk: "/api/extract/kk",
   akta: "/api/extract/akta",
 } as const;
+
+type DocumentType = "kk" | "akta" | "both";
 
 interface ApiSuccessResponse<T> {
   status: "success";
@@ -19,19 +22,24 @@ interface ApiErrorResponse {
   error?: string;
 }
 
-type ApiResponse<T> =
-  | ApiSuccessResponse<T>
-  | ApiErrorResponse;
+interface ClassificationData {
+  type: DocumentType;
+}
 
-export const getDocumentType = (
+type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+
+function getDocumentTypeFromFilename(
   filename: string
-): "kk" | "akta" => {
-  return filename.toLowerCase().includes("akta")
-    ? "akta"
-    : "kk";
-};
+): Exclude<DocumentType, "both"> | null {
+  const name = filename.toLowerCase();
 
-async function requestExtraction<T>(
+  if (name.includes("akta")) return "akta";
+  if (name.includes("_kk") || name.includes("-kk") || name.includes(" kk")) return "kk";
+
+  return null;
+}
+
+async function requestFile<T>(
   file: File,
   endpoint: string
 ): Promise<ApiSuccessResponse<T>> {
@@ -46,9 +54,7 @@ async function requestExtraction<T>(
       body: formData,
     });
   } catch {
-    throw new Error(
-      `Gagal mengekstrak ${file.name}: gagal terhubung ke server.`
-    );
+    throw new Error(`Gagal memproses ${file.name}: gagal terhubung ke server.`);
   }
 
   let data: ApiResponse<T>;
@@ -56,9 +62,7 @@ async function requestExtraction<T>(
   try {
     data = await response.json();
   } catch {
-    throw new Error(
-      `Gagal mengekstrak ${file.name}: response server tidak valid.`
-    );
+    throw new Error(`Gagal memproses ${file.name}: response server tidak valid.`);
   }
 
   if (!response.ok || data.status !== "success") {
@@ -68,32 +72,41 @@ async function requestExtraction<T>(
         : undefined;
 
     throw new Error(
-      `Gagal mengekstrak ${file.name}: ${
-        message || "Terjadi kesalahan pada server."
-      }`
+      `Gagal memproses ${file.name}: ${message || "Terjadi kesalahan pada server."}`
     );
   }
 
   if (data.data === undefined || data.data === null) {
-    throw new Error(
-      `Gagal mengekstrak ${file.name}: data tidak ditemukan.`
-    );
+    throw new Error(`Gagal memproses ${file.name}: data tidak ditemukan.`);
   }
 
   return data;
 }
 
-export const extractDocument = async (
-  file: File
-): Promise<ExtractionResult> => {
-  const type = getDocumentType(file.name);
+async function resolveDocumentType(file: File): Promise<DocumentType> {
+  const knownType = getDocumentTypeFromFilename(file.name);
+
+  if (knownType) return knownType;
+
+  const result = await requestFile<ClassificationData>(
+    file,
+    API_ENDPOINTS.classify
+  );
+
+  const type = result.data.type;
+
+  if (type !== "kk" && type !== "akta" && type !== "both") {
+    throw new Error(`Jenis dokumen ${file.name} tidak dapat dikenali.`);
+  }
+
+  return type;
+}
+
+export async function extractDocument(file: File): Promise<ExtractionResult> {
+  const type = await resolveDocumentType(file);
 
   if (type === "kk") {
-    const result =
-      await requestExtraction<KkResult>(
-        file,
-        API_ENDPOINTS.kk
-      );
+    const result = await requestFile<KkResult>(file, API_ENDPOINTS.kk);
 
     return {
       type: "kk",
@@ -102,15 +115,30 @@ export const extractDocument = async (
     };
   }
 
-  const result =
-    await requestExtraction<AktaResult>(
-      file,
-      API_ENDPOINTS.akta
-    );
+  if (type === "akta") {
+    const result = await requestFile<AktaResult>(file, API_ENDPOINTS.akta);
+
+    return {
+      type: "akta",
+      data: result.data,
+      model_used: result.model_used,
+    };
+  }
+
+  const [kkResult, aktaResult] = await Promise.all([
+    requestFile<KkResult>(file, API_ENDPOINTS.kk),
+    requestFile<AktaResult>(file, API_ENDPOINTS.akta),
+  ]);
 
   return {
-    type: "akta",
-    data: result.data,
-    model_used: result.model_used,
+    type: "both",
+    data: {
+      kk: kkResult.data,
+      akta: aktaResult.data,
+    },
+    model_used: {
+      kk: kkResult.model_used,
+      akta: aktaResult.model_used,
+    },
   };
-};
+}

@@ -11,4 +11,15 @@ export type ExtractionResult =
       type: "akta";
       data: AktaResult;
       model_used?: string;
+    }
+  | {
+      type: "both";
+      data: {
+        kk: KkResult;
+        akta: AktaResult;
+      };
+      model_used?: {
+        kk?: string;
+        akta?: string;
+      };
     };

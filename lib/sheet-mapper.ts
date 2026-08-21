@@ -3,15 +3,22 @@ import type { AktaResult } from "@/types/akta";
 import type { KkResult, KkAnggota } from "@/types/kk";
 import { formatTeksResmi } from "@/lib/text-formatter";
 
-const formatGolonganDarah = (
-  value: string | null | undefined
-): string => {
+const formatGolonganDarah = (value: string | null | undefined): string => {
   const golonganDarah = value?.trim() || "";
 
   if (!golonganDarah) return "";
   if (golonganDarah.toLowerCase() === "tidak tahu") return "Tidak Tahu";
 
   return golonganDarah.toUpperCase();
+};
+
+const formatJenisKelamin = (value: string | null | undefined): string => {
+  const jenisKelamin = value?.trim().toLowerCase() || "";
+
+  if (jenisKelamin.includes("laki")) return "Laki-laki";
+  if (jenisKelamin.includes("perempuan")) return "Perempuan";
+
+  return value?.trim() || "";
 };
 
 const setRowValue = (
@@ -22,10 +29,7 @@ const setRowValue = (
   try {
     targetRow.set(column, value);
   } catch (error) {
-    console.error(
-      `[Sheet Mapper] Gagal mengisi kolom "${column}":`,
-      error
-    );
+    console.error(`[Sheet Mapper] Gagal mengisi kolom "${column}":`, error);
   }
 };
 
@@ -39,39 +43,31 @@ const findDataMurid = (
         anggota.nama_lengkap.toLowerCase().trim() === namaSiswaTarget
     ) ||
     listAnggota.find((anggota) =>
-      anggota.status_hubungan_dalam_keluarga
-        .toLowerCase()
-        .includes("anak")
+      anggota.status_hubungan_dalam_keluarga.toLowerCase().includes("anak")
     ) ||
     listAnggota[0]
   );
 };
 
-const findDataAyah = (
-  listAnggota: KkAnggota[]
-): KkAnggota | undefined => {
+const findDataAyah = (listAnggota: KkAnggota[]): KkAnggota | undefined => {
   return listAnggota.find((anggota) => {
     const status = anggota.status_hubungan_dalam_keluarga.toLowerCase();
     const jenisKelamin = anggota.jenis_kelamin.toLowerCase();
 
     return (
-      (status.includes("kepala keluarga") &&
-        jenisKelamin.includes("laki")) ||
+      (status.includes("kepala keluarga") && jenisKelamin.includes("laki")) ||
       status.includes("suami")
     );
   });
 };
 
-const findDataIbu = (
-  listAnggota: KkAnggota[]
-): KkAnggota | undefined => {
+const findDataIbu = (listAnggota: KkAnggota[]): KkAnggota | undefined => {
   return listAnggota.find((anggota) => {
     const status = anggota.status_hubungan_dalam_keluarga.toLowerCase();
     const jenisKelamin = anggota.jenis_kelamin.toLowerCase();
 
     return (
-      (status.includes("kepala keluarga") &&
-        jenisKelamin.includes("perempuan")) ||
+      (status.includes("kepala keluarga") && jenisKelamin.includes("perempuan")) ||
       status.includes("istri") ||
       status.includes("isteri")
     );
@@ -101,7 +97,7 @@ export function mapDataToRow(
   // Murid
   setRowValue(targetRow, "Nama", formatTeksResmi(dataMurid.nama_lengkap));
   setRowValue(targetRow, "NIK", dataMurid.nik || "");
-  setRowValue(targetRow, "Jenis Kelamin", formatTeksResmi(dataMurid.jenis_kelamin));
+  setRowValue(targetRow, "Jenis Kelamin", formatJenisKelamin(dataMurid.jenis_kelamin));
   setRowValue(targetRow, "Tempat Lahir", formatTeksResmi(dataMurid.tempat_lahir));
   setRowValue(targetRow, "Tanggal Lahir", dataMurid.tanggal_lahir || "");
   setRowValue(targetRow, "Agama", formatTeksResmi(dataMurid.agama));
@@ -151,8 +147,10 @@ export function mapDataToRow(
   // Anggota keluarga
   listAnggota.slice(0, 10).forEach((anggota, index) => {
     const nomor = index + 1;
+
     setRowValue(targetRow, `Nama Anggota ${nomor}`, formatTeksResmi(anggota.nama_lengkap));
     setRowValue(targetRow, `NIK Anggota ${nomor}`, anggota.nik || "");
+    setRowValue(targetRow, `Jenis Kelamin Anggota ${nomor}`, formatJenisKelamin(anggota.jenis_kelamin));
     setRowValue(targetRow, `Status Anggota ${nomor}`, formatTeksResmi(anggota.status_hubungan_dalam_keluarga));
     setRowValue(targetRow, `Tempat Lahir Anggota ${nomor}`, formatTeksResmi(anggota.tempat_lahir));
     setRowValue(targetRow, `Tanggal Lahir Anggota ${nomor}`, anggota.tanggal_lahir || "");
