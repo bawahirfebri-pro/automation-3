@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { GoogleSpreadsheet } from "google-spreadsheet";
 import { JWT } from "google-auth-library";
 
@@ -25,29 +24,71 @@ function getValue(row: any, header: string): string {
   return row.get(header)?.toString().trim() || "";
 }
 
-async function getSheet() {
-  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+function normalizeName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[.,'’`-]/g, " ")
+    .replace(/\s+/g, " ");
+}
 
-  if (!serviceAccountEmail || !privateKey || !spreadsheetId) {
-    throw new Error("Konfigurasi Google Sheet belum lengkap.");
+function namesEqual(a: string, b: string): boolean {
+  const first = normalizeName(a);
+  const second = normalizeName(b);
+
+  return Boolean(first && second && first === second);
+}
+
+function kkContainsStudent(
+  data: KkResult,
+  targetName: string
+): boolean {
+  return data.anggota_keluarga.some((anggota) =>
+    namesEqual(anggota.nama_lengkap, targetName)
+  );
+}
+
+async function getSheet() {
+  const serviceAccountEmail =
+    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+
+  const privateKey =
+    process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+  const spreadsheetId =
+    process.env.GOOGLE_SHEET_ID;
+
+  if (
+    !serviceAccountEmail ||
+    !privateKey ||
+    !spreadsheetId
+  ) {
+    throw new Error(
+      "Konfigurasi Google Sheet belum lengkap."
+    );
   }
 
   const serviceAccountAuth = new JWT({
     email: serviceAccountEmail,
     key: privateKey,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+    ],
   });
 
-  const doc = new GoogleSpreadsheet(spreadsheetId, serviceAccountAuth);
+  const doc = new GoogleSpreadsheet(
+    spreadsheetId,
+    serviceAccountAuth
+  );
 
   await doc.loadInfo();
 
   const sheet = doc.sheetsByIndex[0];
 
   if (!sheet) {
-    throw new Error("Sheet tujuan tidak ditemukan.");
+    throw new Error(
+      "Sheet tujuan tidak ditemukan."
+    );
   }
 
   return sheet;
@@ -59,7 +100,11 @@ async function getTargetRow(rowIndex: string) {
   if (!Number.isInteger(targetRowNumber)) {
     return {
       error: NextResponse.json(
-        { success: false, message: "Nomor baris murid tidak valid." },
+        {
+          success: false,
+          message:
+            "Nomor baris murid tidak valid.",
+        },
         { status: 400 }
       ),
       row: null,
@@ -68,12 +113,20 @@ async function getTargetRow(rowIndex: string) {
 
   const sheet = await getSheet();
   const rows = await sheet.getRows();
-  const row = rows.find((item) => item.rowNumber === targetRowNumber);
+
+  const row = rows.find(
+    (item) =>
+      item.rowNumber === targetRowNumber
+  );
 
   if (!row) {
     return {
       error: NextResponse.json(
-        { success: false, message: "Data murid tidak ditemukan." },
+        {
+          success: false,
+          message:
+            "Data murid tidak ditemukan.",
+        },
         { status: 404 }
       ),
       row: null,
@@ -91,78 +144,191 @@ export async function GET(
   context: RouteContext
 ) {
   try {
-    const { rowIndex } = await context.params;
-    const { row: targetRow, error } = await getTargetRow(rowIndex);
+    const { rowIndex } =
+      await context.params;
 
-    if (error || !targetRow) return error;
+    const {
+      row: targetRow,
+      error,
+    } = await getTargetRow(rowIndex);
 
-    const noKk = getValue(targetRow, "No. Kartu Keluarga");
-    const noAkta = getValue(targetRow, "No. Akta Kelahiran");
+    if (error || !targetRow) {
+      return error;
+    }
 
-    const anggotaKeluarga: KkResult["anggota_keluarga"] = [];
+    const noKk = getValue(
+      targetRow,
+      "No. Kartu Keluarga"
+    );
+
+    const noAkta = getValue(
+      targetRow,
+      "No. Akta Kelahiran"
+    );
+
+    const anggotaKeluarga: KkResult["anggota_keluarga"] =
+      [];
 
     for (let i = 1; i <= 10; i += 1) {
-      const nama = getValue(targetRow, `Nama Anggota ${i}`);
-      const nik = getValue(targetRow, `NIK Anggota ${i}`);
+      const nama = getValue(
+        targetRow,
+        `Nama Anggota ${i}`
+      );
 
-      if (!nama && !nik) continue;
+      const nik = getValue(
+        targetRow,
+        `NIK Anggota ${i}`
+      );
+
+      if (!nama && !nik) {
+        continue;
+      }
 
       anggotaKeluarga.push({
         nama_lengkap: nama,
         nik,
-        jenis_kelamin: getValue(targetRow, `Jenis Kelamin Anggota ${i}`),
-        status_hubungan_dalam_keluarga: getValue(targetRow, `Status Anggota ${i}`),
-        tempat_lahir: getValue(targetRow, `Tempat Lahir Anggota ${i}`),
-        tanggal_lahir: getValue(targetRow, `Tanggal Lahir Anggota ${i}`),
-        agama: getValue(targetRow, `Agama Anggota ${i}`),
-        golongan_darah: getValue(targetRow, `Golongan Darah Anggota ${i}`),
-        pendidikan: getValue(targetRow, `Pendidikan Anggota ${i}`),
-        jenis_pekerjaan: getValue(targetRow, `Pekerjaan Anggota ${i}`),
-        nama_ayah: getValue(targetRow, `Nama Ayah dari Anggota ${i}`),
-        nama_ibu: getValue(targetRow, `Nama Ibu dari Anggota ${i}`),
+        jenis_kelamin: getValue(
+          targetRow,
+          `Jenis Kelamin Anggota ${i}`
+        ),
+        status_hubungan_dalam_keluarga:
+          getValue(
+            targetRow,
+            `Status Anggota ${i}`
+          ),
+        tempat_lahir: getValue(
+          targetRow,
+          `Tempat Lahir Anggota ${i}`
+        ),
+        tanggal_lahir: getValue(
+          targetRow,
+          `Tanggal Lahir Anggota ${i}`
+        ),
+        agama: getValue(
+          targetRow,
+          `Agama Anggota ${i}`
+        ),
+        golongan_darah: getValue(
+          targetRow,
+          `Golongan Darah Anggota ${i}`
+        ),
+        pendidikan: getValue(
+          targetRow,
+          `Pendidikan Anggota ${i}`
+        ),
+        jenis_pekerjaan: getValue(
+          targetRow,
+          `Pekerjaan Anggota ${i}`
+        ),
+        nama_ayah: getValue(
+          targetRow,
+          `Nama Ayah dari Anggota ${i}`
+        ),
+        nama_ibu: getValue(
+          targetRow,
+          `Nama Ibu dari Anggota ${i}`
+        ),
       });
     }
 
     const kk: KkResult | null = noKk
       ? {
           no_kk: noKk,
-          alamat: getValue(targetRow, "Alamat"),
-          rt: getValue(targetRow, "RT"),
-          rw: getValue(targetRow, "RW"),
-          kelurahan: getValue(targetRow, "Desa/Kelurahan"),
-          kecamatan: getValue(targetRow, "Kecamatan"),
-          kabupaten_kota: getValue(targetRow, "Kabupaten/Kota"),
-          provinsi: getValue(targetRow, "Provinsi"),
-          kode_pos: getValue(targetRow, "Kode Pos"),
-          tanggal_dikeluarkan: getValue(targetRow, "Tanggal Terbit KK"),
-          anggota_keluarga: anggotaKeluarga,
+          alamat: getValue(
+            targetRow,
+            "Alamat"
+          ),
+          rt: getValue(
+            targetRow,
+            "RT"
+          ),
+          rw: getValue(
+            targetRow,
+            "RW"
+          ),
+          kelurahan: getValue(
+            targetRow,
+            "Desa/Kelurahan"
+          ),
+          kecamatan: getValue(
+            targetRow,
+            "Kecamatan"
+          ),
+          kabupaten_kota: getValue(
+            targetRow,
+            "Kabupaten/Kota"
+          ),
+          provinsi: getValue(
+            targetRow,
+            "Provinsi"
+          ),
+          kode_pos: getValue(
+            targetRow,
+            "Kode Pos"
+          ),
+          tanggal_dikeluarkan: getValue(
+            targetRow,
+            "Tanggal Terbit KK"
+          ),
+          anggota_keluarga:
+            anggotaKeluarga,
         }
       : null;
 
     const akta: AktaResult | null = noAkta
       ? {
           no_akta_kelahiran: noAkta,
-          nama_anak: getValue(targetRow, "Nama"),
-          anak_ke: getValue(targetRow, "Anak ke"),
-          tempat_lahir: getValue(targetRow, "Tempat Lahir"),
-          tanggal_lahir: getValue(targetRow, "Tanggal Lahir"),
+          nama_anak: getValue(
+            targetRow,
+            "Nama"
+          ),
+          anak_ke: getValue(
+            targetRow,
+            "Anak ke"
+          ),
+          tempat_lahir: getValue(
+            targetRow,
+            "Tempat Lahir"
+          ),
+          tanggal_lahir: getValue(
+            targetRow,
+            "Tanggal Lahir"
+          ),
           nama_ayah:
-            getValue(targetRow, "Nama Ayah Kandung") ||
-            getValue(targetRow, "Nama Ayah"),
+            getValue(
+              targetRow,
+              "Nama Ayah Kandung"
+            ) ||
+            getValue(
+              targetRow,
+              "Nama Ayah"
+            ),
           nama_ibu:
-            getValue(targetRow, "Nama Ibu Kandung") ||
-            getValue(targetRow, "Nama Ibu"),
+            getValue(
+              targetRow,
+              "Nama Ibu Kandung"
+            ) ||
+            getValue(
+              targetRow,
+              "Nama Ibu"
+            ),
         }
       : null;
 
-    const detail: StudentDetail = { kk, akta };
+    const detail: StudentDetail = {
+      kk,
+      akta,
+    };
 
     return NextResponse.json({
       success: true,
       data: detail,
     });
   } catch (error: unknown) {
-    console.error("[GET /api/students/[rowIndex]]", error);
+    console.error(
+      "[GET /api/students/[rowIndex]]",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -182,75 +348,193 @@ export async function PATCH(
   context: RouteContext
 ) {
   try {
-    const { rowIndex } = await context.params;
-    const { row: targetRow, error } = await getTargetRow(rowIndex);
+    const { rowIndex } =
+      await context.params;
 
-    if (error || !targetRow) return error;
+    const {
+      row: targetRow,
+      error,
+    } = await getTargetRow(rowIndex);
 
-    const body = (await request.json()) as UpdateStudentRequest;
-    const { extractedData, aktaData, fileName } = body;
+    if (error || !targetRow) {
+      return error;
+    }
+
+    const body =
+      (await request.json()) as UpdateStudentRequest;
+
+    const {
+      extractedData,
+      aktaData,
+      fileName,
+    } = body;
 
     if (!extractedData && !aktaData) {
       return NextResponse.json(
         {
           success: false,
-          message: "Tidak ada data KK atau Akta untuk disinkronkan.",
+          message:
+            "Tidak ada data KK atau Akta untuk disinkronkan.",
         },
         { status: 400 }
       );
     }
 
+    /*
+     * ========================================================
+     * 1. VALIDASI KK
+     * ========================================================
+     */
+
     if (extractedData) {
-      const validationError = validateExtractedKk(extractedData);
+      const validationError =
+        validateExtractedKk(
+          extractedData
+        );
 
       if (validationError) {
         return NextResponse.json(
           {
             success: false,
-            message: `Ditolak oleh Server: ${validationError}`,
+            message:
+              `Ditolak oleh Server: ${validationError}`,
           },
           { status: 400 }
         );
       }
     }
 
-    let namaSiswaTarget = fileName
-      ? extractStudentNameFromFilename(fileName)
-      : "";
+    /*
+     * ========================================================
+     * 2. IDENTITAS ROW GOOGLE SHEET
+     *
+     * Row yang diminta adalah sumber kebenaran utama.
+     * ========================================================
+     */
 
-    const listAnggota = extractedData?.anggota_keluarga ?? [];
-
-    if (!namaSiswaTarget && listAnggota.length > 0) {
-      const anak = listAnggota.find((anggota) =>
-        anggota.status_hubungan_dalam_keluarga
-          .toLowerCase()
-          .includes("anak")
+    const targetStudentName =
+      getValue(
+        targetRow,
+        "Nama"
       );
 
-      namaSiswaTarget = (
-        anak?.nama_lengkap ||
-        listAnggota[0]?.nama_lengkap ||
-        ""
-      )
-        .trim()
-        .toLowerCase();
-    }
-
-    if (!namaSiswaTarget && aktaData?.nama_anak) {
-      namaSiswaTarget = aktaData.nama_anak
-        .trim()
-        .toLowerCase();
-    }
-
-    if (!namaSiswaTarget) {
+    if (!targetStudentName) {
       return NextResponse.json(
         {
           success: false,
-          message: "Nama siswa tidak dapat diidentifikasi.",
+          message:
+            "Nama murid pada row Google Sheet kosong.",
         },
         { status: 400 }
       );
     }
+
+    /*
+     * ========================================================
+     * 3. VALIDASI TARGET DARI FILENAME
+     *
+     * Frontend mengirim:
+     * Adhibah Khaylila Islami_KK.pdf
+     *
+     * Jika rowIndex ternyata milik Jauza,
+     * request HARUS ditolak.
+     * ========================================================
+     */
+
+    const fileTargetName = fileName
+      ? extractStudentNameFromFilename(
+          fileName
+        )
+      : "";
+
+    if (
+      fileTargetName &&
+      !namesEqual(
+        fileTargetName,
+        targetStudentName
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            `Target dokumen "${fileTargetName}" tidak sesuai dengan murid pada baris tujuan "${targetStudentName}".`,
+        },
+        { status: 409 }
+      );
+    }
+
+    /*
+     * ========================================================
+     * 4. VALIDASI SHARED KK
+     *
+     * KK hanya boleh ditulis ke row siswa jika nama siswa
+     * memang terdapat sebagai anggota KK.
+     *
+     * Jadi:
+     *
+     * KK Adhibah + Jauza
+     * → row Adhibah ✅
+     * → row Jauza   ✅
+     * → row Budi    ❌
+     * ========================================================
+     */
+
+    if (
+      extractedData &&
+      !kkContainsStudent(
+        extractedData,
+        targetStudentName
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            `Murid "${targetStudentName}" tidak ditemukan dalam anggota Kartu Keluarga yang akan disimpan.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    /*
+     * ========================================================
+     * 5. VALIDASI AKTA
+     *
+     * Akta bersifat one-to-one.
+     *
+     * Akta Adhibah tidak boleh pernah tersimpan ke row Jauza.
+     * ========================================================
+     */
+
+    if (
+      aktaData?.nama_anak &&
+      !namesEqual(
+        aktaData.nama_anak,
+        targetStudentName
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            `Akta atas nama "${aktaData.nama_anak}" tidak sesuai dengan murid pada baris tujuan "${targetStudentName}".`,
+        },
+        { status: 409 }
+      );
+    }
+
+    /*
+     * ========================================================
+     * 6. NAMA TARGET FINAL
+     *
+     * Tidak lagi bergantung pada anggota pertama KK.
+     * Nama row Google Sheet menjadi canonical target.
+     * ========================================================
+     */
+
+    const namaSiswaTarget =
+      targetStudentName;
 
     mapDataToRow(
       targetRow,
@@ -263,10 +547,14 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      message: "Data murid berhasil disinkronkan.",
+      message:
+        "Data murid berhasil disinkronkan.",
     });
   } catch (error: unknown) {
-    console.error("[PATCH /api/students/[rowIndex]]", error);
+    console.error(
+      "[PATCH /api/students/[rowIndex]]",
+      error
+    );
 
     return NextResponse.json(
       {

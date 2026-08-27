@@ -1,8 +1,6 @@
-import type { AktaResult } from "@/types/akta";
-import type { KkResult } from "@/types/kk";
 import type { StudentRecord } from "@/types/student";
 
-export type StudentNameSource = "akta" | "kk";
+export type StudentNameSource = "kk" | "akta" | "filename";
 
 export interface StudentNameCandidate {
   name: string;
@@ -10,9 +8,10 @@ export interface StudentNameCandidate {
   source: StudentNameSource;
 }
 
-export interface ExactStudentMatch {
+export interface StudentMatchResult {
   student: StudentRecord;
   candidate: StudentNameCandidate;
+  score: number;
 }
 
 export interface FuzzyStudentCandidate {
@@ -21,15 +20,10 @@ export interface FuzzyStudentCandidate {
   score: number;
 }
 
-export interface FuzzyStudentMatch {
-  student: StudentRecord;
-  candidate: StudentNameCandidate;
-  score: number;
-  secondScore: number;
-}
-
-const AUTO_MATCH_MIN_SCORE = 0.88;
-const AUTO_MATCH_MIN_GAP = 0.08;
+const AUTO_FUZZY_THRESHOLD = 0.92;
+const AI_CANDIDATE_THRESHOLD = 0.55;
+const MIN_AUTO_SCORE_GAP = 0.06;
+const MIN_WORD_SIMILARITY = 0.78;
 
 export function normalizeStudentName(value: string): string {
   return value
@@ -37,8 +31,9 @@ export function normalizeStudentName(value: string): string {
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\p{L}\p{N}\s]/gu, "")
-    .replace(/\s+/g, " ");
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function levenshteinDistance(a: string, b: string): number {
@@ -46,13 +41,13 @@ function levenshteinDistance(a: string, b: string): number {
   if (!a) return b.length;
   if (!b) return a.length;
 
-  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  const previous = Array.from({ length: b.length + 1 }, (_, i) => i);
   const current = new Array<number>(b.length + 1);
 
-  for (let i = 1; i <= a.length; i++) {
+  for (let i = 1; i <= a.length; i += 1) {
     current[0] = i;
 
-    for (let j = 1; j <= b.length; j++) {
+    for (let j = 1; j <= b.length; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
 
       current[j] = Math.min(
@@ -62,98 +57,178 @@ function levenshteinDistance(a: string, b: string): number {
       );
     }
 
-    for (let j = 0; j <= b.length; j++) previous[j] = current[j];
+    for (let j = 0; j <= b.length; j += 1) {
+      previous[j] = current[j];
+    }
   }
 
   return previous[b.length];
 }
 
-function calculateNameSimilarity(a: string, b: string): number {
-  const left = normalizeStudentName(a);
-  const right = normalizeStudentName(b);
+function levenshteinSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
 
-  if (!left || !right) return 0;
-  if (left === right) return 1;
-
-  const maxLength = Math.max(left.length, right.length);
-  const distance = levenshteinDistance(left, right);
-  let score = 1 - distance / maxLength;
-
-  if (left.includes(right) || right.includes(left)) {
-    score = Math.min(1, score + 0.04);
-  }
-
-  return Number(score.toFixed(4));
+  const maxLength = Math.max(a.length, b.length);
+  return maxLength === 0
+    ? 1
+    : 1 - levenshteinDistance(a, b) / maxLength;
 }
 
-export function getStudentNameCandidates(
-  kk: KkResult | null,
-  akta: AktaResult | null
-): StudentNameCandidate[] {
-  const candidates: StudentNameCandidate[] = [];
-  const seen = new Set<string>();
+function getWords(value: string): string[] {
+  return normalizeStudentName(value).split(" ").filter(Boolean);
+}
 
-  const addCandidate = (
-    name: string | null | undefined,
-    source: StudentNameSource
-  ) => {
-    const normalizedName = normalizeStudentName(name || "");
-    if (!normalizedName || seen.has(normalizedName)) return;
+function wordSimilarity(a: string, b: string): number {
+  const wordsA = getWords(a);
+  const wordsB = getWords(b);
 
-    seen.add(normalizedName);
-    candidates.push({
-      name: name?.trim() || "",
-      normalizedName,
-      source,
+  if (wordsA.length === 0 || wordsB.length === 0) return 0;
+
+  const used = new Set<number>();
+  let total = 0;
+
+  for (const wordA of wordsA) {
+    let bestScore = 0;
+    let bestIndex = -1;
+
+    wordsB.forEach((wordB, index) => {
+      if (used.has(index)) return;
+
+      const score = levenshteinSimilarity(wordA, wordB);
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
     });
-  };
 
-  if (akta?.nama_anak) addCandidate(akta.nama_anak, "akta");
+    if (bestIndex >= 0) {
+      used.add(bestIndex);
+      total += bestScore;
+    }
+  }
 
-  kk?.anggota_keluarga?.forEach((anggota) => {
-    addCandidate(anggota.nama_lengkap, "kk");
+  return total / Math.max(wordsA.length, wordsB.length);
+}
+
+function tokenOverlapScore(a: string, b: string): number {
+  const wordsA = new Set(getWords(a));
+  const wordsB = new Set(getWords(b));
+
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+  let intersection = 0;
+
+  wordsA.forEach((word) => {
+    if (wordsB.has(word)) intersection += 1;
   });
 
-  return candidates;
+  return intersection / Math.max(wordsA.size, wordsB.size);
+}
+
+function containmentScore(a: string, b: string): number {
+  const normalizedA = normalizeStudentName(a);
+  const normalizedB = normalizeStudentName(b);
+
+  if (!normalizedA || !normalizedB) return 0;
+  if (normalizedA === normalizedB) return 1;
+
+  if (
+    normalizedA.includes(normalizedB) ||
+    normalizedB.includes(normalizedA)
+  ) {
+    const shorter = Math.min(normalizedA.length, normalizedB.length);
+    const longer = Math.max(normalizedA.length, normalizedB.length);
+
+    return 0.78 + (shorter / longer) * 0.18;
+  }
+
+  return 0;
+}
+
+function hasStrongTokenRelation(a: string, b: string): boolean {
+  const wordsA = getWords(a);
+  const wordsB = getWords(b);
+
+  if (wordsA.length === 0 || wordsB.length === 0) return false;
+
+  /*
+   * Minimal satu token panjang yang sama persis.
+   *
+   * JAUZA KAMILAH PRIYATNA
+   * ↔ JAUZA KAMILAH
+   * = lolos.
+   */
+  const exactImportantToken = wordsA.some(
+    (wordA) =>
+      wordA.length >= 4 &&
+      wordsB.some((wordB) => wordA === wordB)
+  );
+
+  if (exactImportantToken) return true;
+
+  /*
+   * Atau ada token yang sangat mirip karena typo OCR.
+   *
+   * KAMILAH ↔ KAMILA
+   */
+  return wordsA.some((wordA) =>
+    wordsB.some(
+      (wordB) =>
+        wordA.length >= 4 &&
+        wordB.length >= 4 &&
+        levenshteinSimilarity(wordA, wordB) >= MIN_WORD_SIMILARITY
+    )
+  );
+}
+
+export function calculateStudentNameSimilarity(
+  a: string,
+  b: string
+): number {
+  const normalizedA = normalizeStudentName(a);
+  const normalizedB = normalizeStudentName(b);
+
+  if (!normalizedA || !normalizedB) return 0;
+  if (normalizedA === normalizedB) return 1;
+
+  const characterScore = levenshteinSimilarity(normalizedA, normalizedB);
+  const wordsScore = wordSimilarity(normalizedA, normalizedB);
+  const overlapScore = tokenOverlapScore(normalizedA, normalizedB);
+  const containsScore = containmentScore(normalizedA, normalizedB);
+
+  const weightedScore =
+    characterScore * 0.5 +
+    wordsScore * 0.35 +
+    overlapScore * 0.15;
+
+  return Math.max(weightedScore, containsScore);
 }
 
 export function findExactStudentMatch(
   candidates: StudentNameCandidate[],
   students: StudentRecord[]
-): ExactStudentMatch | null {
-  if (candidates.length === 0 || students.length === 0) return null;
+): StudentMatchResult | null {
+  for (const candidate of candidates) {
+    const normalizedCandidate =
+      candidate.normalizedName || normalizeStudentName(candidate.name);
 
-  const studentMap = new Map<string, StudentRecord[]>();
+    if (!normalizedCandidate) continue;
 
-  students.forEach((student) => {
-    const key = normalizeStudentName(student.nama);
-    if (!key) return;
+    const matches = students.filter(
+      (student) =>
+        normalizeStudentName(student.nama) === normalizedCandidate
+    );
 
-    const existing = studentMap.get(key) || [];
-    existing.push(student);
-    studentMap.set(key, existing);
-  });
+    if (matches.length !== 1) continue;
 
-  const matches = new Map<number, ExactStudentMatch>();
-
-  candidates.forEach((candidate) => {
-    const studentsWithName = studentMap.get(candidate.normalizedName);
-    if (!studentsWithName || studentsWithName.length !== 1) return;
-
-    const student = studentsWithName[0];
-
-    matches.set(student.rowIndex, {
-      student,
+    return {
+      student: matches[0],
       candidate,
-    });
-  });
-
-  const aktaMatches = [...matches.values()].filter(
-    (match) => match.candidate.source === "akta"
-  );
-
-  if (aktaMatches.length === 1) return aktaMatches[0];
-  if (matches.size === 1) return [...matches.values()][0];
+      score: 1,
+    };
+  }
 
   return null;
 }
@@ -163,20 +238,32 @@ export function getFuzzyStudentCandidates(
   students: StudentRecord[],
   limit = 5
 ): FuzzyStudentCandidate[] {
-  if (candidates.length === 0 || students.length === 0) return [];
-
-  const ranked: FuzzyStudentCandidate[] = [];
+  const results: FuzzyStudentCandidate[] = [];
 
   for (const candidate of candidates) {
     for (const student of students) {
-      const score = calculateNameSimilarity(
-        candidate.normalizedName,
+      const score = calculateStudentNameSimilarity(
+        candidate.name,
         student.nama
       );
 
-      if (score <= 0) continue;
+      /*
+       * Dua pagar:
+       * 1. score harus cukup dekat;
+       * 2. harus ada token nama yang benar-benar berhubungan.
+       */
+      if (score < AI_CANDIDATE_THRESHOLD) continue;
 
-      ranked.push({
+      if (
+        !hasStrongTokenRelation(
+          candidate.name,
+          student.nama
+        )
+      ) {
+        continue;
+      }
+
+      results.push({
         student,
         candidate,
         score,
@@ -184,40 +271,49 @@ export function getFuzzyStudentCandidates(
     }
   }
 
-  const bestPerStudent = new Map<number, FuzzyStudentCandidate>();
+  const unique = new Map<number, FuzzyStudentCandidate>();
 
-  ranked.forEach((item) => {
-    const existing = bestPerStudent.get(item.student.rowIndex);
+  for (const result of results) {
+    const previous = unique.get(result.student.rowIndex);
 
-    if (!existing || item.score > existing.score) {
-      bestPerStudent.set(item.student.rowIndex, item);
+    if (!previous || result.score > previous.score) {
+      unique.set(result.student.rowIndex, result);
     }
-  });
+  }
 
-  return [...bestPerStudent.values()]
+  return [...unique.values()]
     .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+    .slice(0, Math.max(1, limit));
 }
 
 export function findFuzzyStudentMatch(
   candidates: StudentNameCandidate[],
   students: StudentRecord[]
-): FuzzyStudentMatch | null {
-  const ranked = getFuzzyStudentCandidates(candidates, students, 2);
+): StudentMatchResult | null {
+  const ranked = getFuzzyStudentCandidates(
+    candidates,
+    students,
+    5
+  );
 
-  if (ranked.length === 0) return null;
+  const best = ranked[0];
 
-  const first = ranked[0];
+  if (!best || best.score < AUTO_FUZZY_THRESHOLD) {
+    return null;
+  }
+
   const second = ranked[1];
-  const secondScore = second?.score ?? 0;
 
-  if (first.score < AUTO_MATCH_MIN_SCORE) return null;
-  if (first.score - secondScore < AUTO_MATCH_MIN_GAP) return null;
+  if (
+    second &&
+    best.score - second.score < MIN_AUTO_SCORE_GAP
+  ) {
+    return null;
+  }
 
   return {
-    student: first.student,
-    candidate: first.candidate,
-    score: first.score,
-    secondScore,
+    student: best.student,
+    candidate: best.candidate,
+    score: best.score,
   };
 }

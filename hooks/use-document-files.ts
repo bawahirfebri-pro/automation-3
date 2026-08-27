@@ -5,12 +5,30 @@ interface UseDocumentFilesReturn {
   handleFileChange: (
     event: React.ChangeEvent<HTMLInputElement>
   ) => void;
-  handleRemoveFile: (indexToRemove: number) => void;
+  handleRemoveFile: (
+    indexToRemove: number
+  ) => void;
   clearFiles: () => void;
+  replaceFiles: (
+    files: File[]
+  ) => void;
 }
 
 function getFileKey(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function uniqueFiles(files: File[]): File[] {
+  const seen = new Set<string>();
+
+  return files.filter((file) => {
+    const key = getFileKey(file);
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
 }
 
 export function useDocumentFiles(): UseDocumentFilesReturn {
@@ -19,26 +37,20 @@ export function useDocumentFiles(): UseDocumentFilesReturn {
   const handleFileChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const selectedFiles = event.target.files;
+    const selectedFiles =
+      event.target.files;
 
     if (!selectedFiles?.length) return;
 
-    const newFiles = Array.from(selectedFiles);
+    const newFiles =
+      Array.from(selectedFiles);
 
-    setFiles((previousFiles) => {
-      const existingKeys = new Set(
-        previousFiles.map((file) => getFileKey(file))
-      );
-
-      const uniqueFiles = newFiles.filter(
-        (file) => !existingKeys.has(getFileKey(file))
-      );
-
-      return [
+    setFiles((previousFiles) =>
+      uniqueFiles([
         ...previousFiles,
-        ...uniqueFiles,
-      ];
-    });
+        ...newFiles,
+      ])
+    );
 
     event.target.value = "";
   };
@@ -48,7 +60,8 @@ export function useDocumentFiles(): UseDocumentFilesReturn {
   ) => {
     setFiles((previousFiles) =>
       previousFiles.filter(
-        (_, index) => index !== indexToRemove
+        (_, index) =>
+          index !== indexToRemove
       )
     );
   };
@@ -57,10 +70,19 @@ export function useDocumentFiles(): UseDocumentFilesReturn {
     setFiles([]);
   };
 
+  const replaceFiles = (
+    nextFiles: File[]
+  ) => {
+    setFiles(
+      uniqueFiles(nextFiles)
+    );
+  };
+
   return {
     files,
     handleFileChange,
     handleRemoveFile,
     clearFiles,
+    replaceFiles,
   };
 }

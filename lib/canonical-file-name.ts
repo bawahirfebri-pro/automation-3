@@ -12,18 +12,10 @@ export function createCanonicalFileName(
   documentType: ExtractedDocumentType
 ): string {
   const safeStudentName = sanitizeFileName(studentName);
+  if (!safeStudentName) return "";
 
-  if (!safeStudentName) {
-    return "";
-  }
-
-  if (documentType === "kk") {
-    return `${safeStudentName}_KK.pdf`;
-  }
-
-  if (documentType === "akta") {
-    return `${safeStudentName}_Akta.pdf`;
-  }
+  if (documentType === "kk") return `${safeStudentName}_KK.pdf`;
+  if (documentType === "akta") return `${safeStudentName}_Akta.pdf`;
 
   return `${safeStudentName}_KK-Akta.pdf`;
 }

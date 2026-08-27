@@ -26,24 +26,17 @@ export type SaveToSheetResponse =
 export async function saveToSheet(
   params: SaveToSheetParams
 ): Promise<SaveToSheetResponse> {
-  const {
-    rowIndex,
-    extractedData,
-    aktaData,
-    fileName,
-  } = params;
-
   const response = await fetch(
-    `/api/students/${rowIndex}`,
+    `/api/students/${params.rowIndex}`,
     {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        extractedData,
-        aktaData,
-        fileName,
+        extractedData: params.extractedData,
+        aktaData: params.aktaData,
+        fileName: params.fileName,
       }),
     }
   );

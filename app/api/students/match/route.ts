@@ -29,8 +29,13 @@ export async function POST(request: Request) {
             (candidate) =>
               Number.isInteger(candidate?.rowIndex) &&
               typeof candidate?.nama === "string" &&
-              typeof candidate?.score === "number"
+              candidate.nama.trim() !== "" &&
+              typeof candidate?.score === "number" &&
+              Number.isFinite(candidate.score) &&
+              candidate.score >= 0 &&
+              candidate.score <= 1
           )
+          .sort((a, b) => b.score - a.score)
           .slice(0, MAX_CANDIDATES)
       : [];
 
@@ -58,6 +63,25 @@ export async function POST(request: Request) {
       detectedNames,
       candidates,
     });
+
+    /*
+     * Defense-in-depth:
+     * route juga memastikan rowIndex hasil AI berasal dari payload.
+     */
+    if (
+      result.matched &&
+      (result.rowIndex === null ||
+        !candidates.some((candidate) => candidate.rowIndex === result.rowIndex))
+    ) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          matched: false,
+          rowIndex: null,
+          modelUsed: result.modelUsed,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
