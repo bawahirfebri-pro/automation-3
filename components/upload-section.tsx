@@ -46,6 +46,13 @@ interface UploadSectionProps {
     rowIndex: number
   ) => void;
   onIgnoreStudent: (fileKey: string, taskKey: string) => void;
+  filenameMatchIssues: Record<
+    string,
+    {
+      status: "not-found";
+      detectedName: string;
+    }
+  >;
 }
 
 interface FileStatus {
@@ -57,6 +64,7 @@ export default function UploadSection({
   files,
   displayFiles,
   fileStudentMatches,
+  filenameMatchIssues,
   manualTasks,
   manualTaskResolutions,
   students,
@@ -78,12 +86,19 @@ export default function UploadSection({
   const [studentSearch, setStudentSearch] = useState("");
   const [showUploadPicker, setShowUploadPicker] = useState(false);
 
-  const compactQueueMode = files.length > 2;
+  const compactQueueMode = displayFiles.length > 2;
   const showMainUploader = !compactQueueMode || showUploadPicker;
 
   const processedFiles = new Set(processedFileKeys);
   const aiMatchingFiles = new Set(aiMatchingFileKeys);
   const hasBlockingIssue = Boolean(conflictMsg || duplicateMsg);
+
+  const hasOnlyNotFoundFiles =
+    files.length > 0 &&
+    displayFiles.length > 0 &&
+    displayFiles.every((item) => filenameMatchIssues[item.fileKey]?.status === "not-found");
+
+  const showExtractingState = isExtracting && !hasOnlyNotFoundFiles;
 
   const sortedDisplayFiles = useMemo(() => {
     return [...displayFiles].sort((a, b) => {
@@ -129,74 +144,81 @@ export default function UploadSection({
         tasks.filter(
           (task) =>
             !manualTaskResolutions[
-              `${fileKey}::${task.taskKey}`
+            `${fileKey}::${task.taskKey}`
             ]
         ),
       ])
     ) as Record<string, ManualResolutionTask[]>;
   }, [manualTasks, manualTaskResolutions]);
 
-  const getFileStatus = (
-    displayFile: DocumentDisplayFile
-  ): FileStatus => {
-    const fileKey = displayFile.fileKey;
-    const fileMatch = fileStudentMatches[fileKey];
-    const isProcessed = processedFiles.has(fileKey);
-    const isAiMatching = aiMatchingFiles.has(fileKey);
-    const unresolvedTasks =
-      unresolvedTasksByFile[fileKey]?.length ?? 0;
+  const getFileStatus = (displayFile: DocumentDisplayFile): FileStatus => {
+  const fileKey = displayFile.fileKey;
+  const fileMatch = fileStudentMatches[fileKey];
+  const isProcessed = processedFiles.has(fileKey);
+  const isAiMatching = aiMatchingFiles.has(fileKey);
+  const unresolvedTasks = unresolvedTasksByFile[fileKey]?.length ?? 0;
 
-    if (conflictMsg && (fileMatch?.rowIndexes.length ?? 0) > 0) {
-      return {
-        label: "Konflik",
-        className: "bg-red-50 text-red-600",
-      };
-    }
-
-    if (isAiMatching) {
-      return {
-        label: "Mencocokkan",
-        className: "bg-violet-50 text-violet-700",
-      };
-    }
-
-    if (unresolvedTasks > 0) {
-      return {
-        label: "Perlu dipilih",
-        className: "bg-amber-50 text-amber-700",
-      };
-    }
-
-    if (
-      (fileMatch?.rowIndexes.length ?? 0) > 0 &&
-      displayFile.documentType &&
-      isProcessed
-    ) {
-      return {
-        label: "Berhasil",
-        className: "bg-emerald-50 text-emerald-700",
-      };
-    }
-
-    if (!isProcessed && (isExtracting || hasPendingFiles)) {
-      return {
-        label: "Memproses",
-        className: "bg-blue-50 text-blue-600",
-      };
-    }
-
-    if (isProcessed) {
-      return {
-        label: "Mengidentifikasi",
-        className: "bg-gray-100 text-gray-600",
-      };
-    }
-
+  if (conflictMsg && (fileMatch?.rowIndexes.length ?? 0) > 0) {
     return {
-      label: "Siap",
-      className: "bg-gray-100 text-gray-500",
+      label: "Konflik",
+      className: "bg-red-50 text-red-600",
     };
+  }
+
+  if (isAiMatching) {
+    return {
+      label: "Mencocokkan",
+      className: "bg-violet-50 text-violet-700",
+    };
+  }
+
+  // Selama extraction belum selesai, status tetap Memproses.
+  if (!isProcessed && (isExtracting || hasPendingFiles)) {
+    return {
+      label: "Memproses",
+      className: "bg-blue-50 text-blue-600",
+    };
+  }
+
+  const filenameIssue = filenameMatchIssues[fileKey];
+
+  if (filenameIssue?.status === "not-found") {
+    return {
+      label: "Tidak terdaftar",
+      className: "bg-red-50 text-red-600",
+    };
+  }
+
+  if (unresolvedTasks > 0) {
+    return {
+      label: "Perlu dipilih",
+      className: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (
+    (fileMatch?.rowIndexes.length ?? 0) > 0 &&
+    displayFile.documentType &&
+    isProcessed
+  ) {
+    return {
+      label: "Berhasil",
+      className: "bg-emerald-50 text-emerald-700",
+    };
+  }
+
+  if (isProcessed) {
+    return {
+      label: "Mengidentifikasi",
+      className: "bg-gray-100 text-gray-600",
+    };
+  }
+
+  return {
+    label: "Siap",
+    className: "bg-gray-100 text-gray-500",
   };
+};
 
   const getMatchMethod = (displayFile: DocumentDisplayFile) => {
     const match = fileStudentMatches[displayFile.fileKey];
@@ -267,51 +289,54 @@ export default function UploadSection({
     setStudentSearch("");
   };
 
-  const handlePickerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onFileChange(event);
-    if (compactQueueMode) setShowUploadPicker(false);
-  };
+
 
   useEffect(() => {
     if (compactQueueMode) setShowUploadPicker(false);
   }, [compactQueueMode]);
+
+  const handlePickerChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    onFileChange(event);
+  };
 
   return (
     <div className="flex h-[516px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
       <div className="border-b border-gray-100 px-5 py-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              className="h-5 w-5"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 16V4m0 0L8 8m4-4 4 4"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 14v4.25A1.75 1.75 0 0 0 6.75 20h10.5A1.75 1.75 0 0 0 19 18.25V14"
-              />
-            </svg>
-          </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="h-5 w-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 16V4m0 0L8 8m4-4 4 4"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 14v4.25A1.75 1.75 0 0 0 6.75 20h10.5A1.75 1.75 0 0 0 19 18.25V14"
+                />
+              </svg>
+            </div>
 
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">
-              {compactQueueMode && !showUploadPicker ? "Antrean Dokumen" : "Tambahkan Dokumen"}
-            </h2>
-            <p className="text-xs text-gray-500">
-              {compactQueueMode && !showUploadPicker
-                ? "Kelola dokumen yang sedang diproses"
-                : "Upload KK dan Akta Kelahiran dalam format PDF"}
-            </p>
-          </div>
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                {compactQueueMode && !showUploadPicker ? "Antrean Dokumen" : "Tambahkan Dokumen"}
+              </h2>
+              <p className="text-xs text-gray-500">
+                {compactQueueMode && !showUploadPicker
+                  ? "Kelola dokumen yang sedang diproses"
+                  : "Upload KK dan Akta Kelahiran dalam format PDF"}
+              </p>
+            </div>
           </div>
 
           {compactQueueMode && showUploadPicker && (
@@ -329,72 +354,71 @@ export default function UploadSection({
 
       <div className="flex min-h-0 flex-1 flex-col p-5">
         {showMainUploader && (
-        <label
-          className={`group flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-5 py-8 text-center transition-colors ${
-            isExtracting
+          <label
+            className={`group flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-5 py-8 text-center transition-colors ${showExtractingState
               ? "cursor-not-allowed border-gray-200 bg-gray-50"
               : "cursor-pointer border-gray-300 bg-gray-50/70 hover:border-blue-400 hover:bg-blue-50/40"
-          }`}
-        >
-          {isExtracting ? (
-            <>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
-                <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
-              </div>
-              <span className="text-sm font-semibold text-gray-700">
-                Sedang memproses dokumen
-              </span>
-              <span className="mt-1 max-w-[280px] text-xs leading-5 text-gray-400">
-                AI sedang membaca dan mengekstrak data dari dokumen.
-                Mohon tunggu beberapa saat.
-              </span>
-            </>
-          ) : (
-            <>
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm ring-1 ring-gray-100 transition-colors group-hover:text-blue-500">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  className="h-6 w-6"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M7 3.75h6.5L18.25 8.5V20A1.25 1.25 0 0 1 17 21.25H7A1.25 1.25 0 0 1 5.75 20V5A1.25 1.25 0 0 1 7 3.75Z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M13.5 3.75V8.5h4.75"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 14h6M12 11v6"
-                  />
-                </svg>
-              </div>
+              }`}
+          >
+            {showExtractingState ? (
+              <>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+                  <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+                </div>
+                <span className="text-sm font-semibold text-gray-700">
+                  Sedang memproses dokumen
+                </span>
+                <span className="mt-1 max-w-[280px] text-xs leading-5 text-gray-400">
+                  AI sedang membaca dan mengekstrak data dari dokumen.
+                  Mohon tunggu beberapa saat.
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm ring-1 ring-gray-100 transition-colors group-hover:text-blue-500">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    className="h-6 w-6"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M7 3.75h6.5L18.25 8.5V20A1.25 1.25 0 0 1 17 21.25H7A1.25 1.25 0 0 1 5.75 20V5A1.25 1.25 0 0 1 7 3.75Z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.5 3.75V8.5h4.75"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 14h6M12 11v6"
+                    />
+                  </svg>
+                </div>
 
-              <span className="text-sm font-medium text-gray-700">
-                Pilih dokumen PDF
-              </span>
-              <span className="mt-1 text-xs text-gray-400">
-                File akan langsung diekstrak setelah dipilih
-              </span>
-            </>
-          )}
+                <span className="text-sm font-medium text-gray-700">
+                  Pilih dokumen PDF
+                </span>
+                <span className="mt-1 text-xs text-gray-400">
+                  File akan langsung diekstrak setelah dipilih
+                </span>
+              </>
+            )}
 
-          <input
-            type="file"
-            accept="application/pdf"
-            multiple
-            onChange={handlePickerChange}
-            disabled={isExtracting}
-            className="hidden"
-          />
-        </label>
+            <input
+              type="file"
+              accept="application/pdf"
+              multiple
+              onChange={handlePickerChange}
+              disabled={showExtractingState}
+              className="hidden"
+            />
+          </label>
         )}
 
         {files.length > 0 && (!compactQueueMode || !showUploadPicker) && (

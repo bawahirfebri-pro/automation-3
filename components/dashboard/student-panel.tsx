@@ -85,6 +85,7 @@ export default function StudentPanel({
     const [selectedKelas, setSelectedKelas] = useState("");
     const [selectedRombel, setSelectedRombel] = useState("");
     const [selectedStatus, setSelectedStatus] = useState<StatusFilter>("");
+    const lastUploadFilterResetKeyRef = useRef("");
     const [activeTab, setActiveTab] = useState<StudentTab>("all");
     const listRef = useRef<HTMLDivElement>(null);
     const studentRefs = useRef<Map<number, HTMLLIElement>>(new Map());
@@ -94,18 +95,34 @@ export default function StudentPanel({
     const detectedRowIndexes = useMemo(() => [...new Set(priorityRowIndexes.filter(Number.isInteger))], [priorityRowIndexes]);
     const detectedSet = useMemo(() => new Set(detectedRowIndexes), [detectedRowIndexes]);
     const detectedStudents = useMemo(() => {
-  return detectedRowIndexes
-    .map((rowIndex) => students.find((student) => student.rowIndex === rowIndex))
-    .filter((student): student is StudentRecord => Boolean(student))
-    .sort((a, b) => a.nama.localeCompare(b.nama, "id", { sensitivity: "base", numeric: true }));
-}, [students, detectedRowIndexes]);
+        return detectedRowIndexes
+            .map((rowIndex) => students.find((student) => student.rowIndex === rowIndex))
+            .filter((student): student is StudentRecord => Boolean(student))
+            .sort((a, b) => a.nama.localeCompare(b.nama, "id", { sensitivity: "base", numeric: true }));
+    }, [students, detectedRowIndexes]);
     const detectedCount = detectedStudents.length;
     const hasMultipleDetected = detectedCount > 1;
     const hasSingleDetected = detectedCount === 1;
     const detectedKey = useMemo(
-  () => [...detectedRowIndexes].sort((a, b) => a - b).join(","),
-  [detectedRowIndexes]
-);
+        () => [...priorityRowIndexes].sort((a, b) => a - b).join(","),
+        [priorityRowIndexes]
+    );
+
+    useEffect(() => {
+        if (!detectedKey) {
+            lastUploadFilterResetKeyRef.current = "";
+            return;
+        }
+
+        if (lastUploadFilterResetKeyRef.current === detectedKey) return;
+
+        lastUploadFilterResetKeyRef.current = detectedKey;
+
+        setSearch("");
+        setSelectedKelas("");
+        setSelectedRombel("");
+        setSelectedStatus("");
+    }, [detectedKey]);
 
     const historyMap = useMemo(() => new Map(history.map((item) => [normalize(item.studentName), item])), [history]);
 
@@ -126,24 +143,6 @@ export default function StudentPanel({
 
         setActiveTab("all");
     }, [detectedKey, detectedCount]);
-
-    useEffect(() => {
-        if (!hasSingleDetected || !detectedKey) return;
-        if (lastAutoScrolledKeyRef.current === detectedKey) return;
-
-        const rowIndex = detectedRowIndexes[0];
-        if (rowIndex === undefined) return;
-
-        const frame = window.requestAnimationFrame(() => {
-            const element = studentRefs.current.get(rowIndex);
-            if (!element) return;
-
-            lastAutoScrolledKeyRef.current = detectedKey;
-            element.scrollIntoView({ behavior: "smooth", block: "center" });
-        });
-
-        return () => window.cancelAnimationFrame(frame);
-    }, [hasSingleDetected, detectedKey, detectedRowIndexes]);
 
     const kelasOptions = useMemo(
         () => [...new Set(students.map((student) => student.kelas).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id", { numeric: true })),
@@ -173,6 +172,39 @@ export default function StudentPanel({
     }, [students, search, selectedKelas, selectedRombel, selectedStatus]);
 
     const visibleStudents = hasMultipleDetected && activeTab === "detected" ? detectedStudents : filteredAllStudents;
+
+    useEffect(() => {
+        if (!hasSingleDetected || !detectedKey) return;
+        if (lastAutoScrolledKeyRef.current === detectedKey) return;
+
+        const rowIndex = detectedRowIndexes[0];
+        if (rowIndex === undefined) return;
+
+        const targetVisible = visibleStudents.some(
+            (student) => student.rowIndex === rowIndex
+        );
+
+        if (!targetVisible) return;
+
+        const frame = window.requestAnimationFrame(() => {
+            const element = studentRefs.current.get(rowIndex);
+            if (!element) return;
+
+            lastAutoScrolledKeyRef.current = detectedKey;
+
+            element.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+            });
+        });
+
+        return () => window.cancelAnimationFrame(frame);
+    }, [
+        hasSingleDetected,
+        detectedKey,
+        detectedRowIndexes,
+        visibleStudents,
+    ]);
 
     const stats = useMemo(() => {
         const total = visibleStudents.length;
@@ -437,10 +469,10 @@ export default function StudentPanel({
                                         }}
                                     >
                                         <div className={`relative flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-3.5 transition-colors ${isActive
-                                                ? "bg-blue-50/60"
-                                                : hasSingleDetected && isDetected
-                                                    ? "bg-blue-50/30"
-                                                    : "hover:bg-gray-50/80"
+                                            ? "bg-blue-50/60"
+                                            : hasSingleDetected && isDetected
+                                                ? "bg-blue-50/30"
+                                                : "hover:bg-gray-50/80"
                                             }`}>
                                             {(isActive || (hasSingleDetected && isDetected)) && (
                                                 <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-blue-500" />
