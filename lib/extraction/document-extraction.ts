@@ -8,7 +8,11 @@ const API_ENDPOINTS = {
   akta: "/api/extract/akta",
 } as const;
 
-type DocumentType = "kk" | "akta" | "both";
+type DocumentType =
+  | "kk"
+  | "akta"
+  | "both"
+  | "unknown";
 
 interface ApiSuccessResponse<T> {
   status: "success";
@@ -30,7 +34,7 @@ type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 function getDocumentTypeFromFilename(
   filename: string
-): Exclude<DocumentType, "both"> | null {
+): "kk" | "akta" | null {
   const name = filename.toLowerCase();
 
   if (name.includes("akta")) return "akta";
@@ -95,23 +99,45 @@ async function resolveDocumentType(file: File): Promise<DocumentType> {
 
   const type = result.data.type;
 
-  if (type !== "kk" && type !== "akta" && type !== "both") {
-    throw new Error(`Jenis dokumen ${file.name} tidak dapat dikenali.`);
+  if (
+    type !== "kk" &&
+    type !== "akta" &&
+    type !== "both" &&
+    type !== "unknown"
+  ) {
+    throw new Error(
+      `Jenis dokumen ${file.name} tidak dapat dikenali.`
+    );
   }
 
   return type;
 }
 
-export async function extractDocument(file: File): Promise<ExtractionResult> {
-  const type = await resolveDocumentType(file);
+export async function extractDocument(
+  file: File
+): Promise<ExtractionResult> {
+  const type =
+    await resolveDocumentType(file);
+
+  if (type === "unknown") {
+    return {
+      type: "unknown",
+      data: null,
+    };
+  }
 
   if (type === "kk") {
-    const result = await requestFile<KkResult>(file, API_ENDPOINTS.kk);
+    const result =
+      await requestFile<KkResult>(
+        file,
+        API_ENDPOINTS.kk
+      );
 
     return {
       type: "kk",
       data: result.data,
-      model_used: result.model_used,
+      model_used:
+        result.model_used,
     };
   }
 

@@ -1,6 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
-export type ClassifiedDocumentType = "kk" | "akta" | "both";
+export type ClassifiedDocumentType =
+  | "kk"
+  | "akta"
+  | "both"
+  | "unknown";
 
 interface ClassificationResult {
   type: ClassifiedDocumentType;
@@ -16,6 +20,12 @@ Pilih tepat satu:
 - "kk" jika dokumen adalah Kartu Keluarga.
 - "akta" jika dokumen adalah Akta Kelahiran.
 - "both" jika PDF berisi Kartu Keluarga dan Akta Kelahiran sekaligus.
+- "unknown" jika dokumen bukan Kartu Keluarga maupun Akta Kelahiran.
+
+Contoh dokumen "unknown":
+surat sekolah, SPTJM, formulir, surat pernyataan,
+surat keterangan, dokumen administrasi lain,
+atau dokumen lain yang bukan KK/Akta.
 
 Jangan mengekstrak data.
 Jangan memberikan penjelasan.
@@ -52,7 +62,12 @@ export async function classifyDocument(file: File): Promise<ClassificationResult
         properties: {
           type: {
             type: "string",
-            enum: ["kk", "akta", "both"],
+            enum: [
+  "kk",
+  "akta",
+  "both",
+  "unknown",
+],
           },
         },
         required: ["type"],
@@ -77,9 +92,16 @@ export async function classifyDocument(file: File): Promise<ClassificationResult
 
   const type = (parsed as { type?: unknown }).type;
 
-  if (type !== "kk" && type !== "akta" && type !== "both") {
-    throw new Error("Jenis dokumen tidak dapat dikenali.");
-  }
+if (
+  type !== "kk" &&
+  type !== "akta" &&
+  type !== "both" &&
+  type !== "unknown"
+) {
+  throw new Error(
+    "Jenis dokumen tidak dapat dikenali."
+  );
+}
 
   return {
     type,

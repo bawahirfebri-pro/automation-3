@@ -1,4 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type { DocumentDisplayFile } from "@/types/document-file";
 import type { StudentRecord } from "@/types/student";
@@ -25,27 +30,38 @@ export interface ManualResolutionValue {
 interface UploadSectionProps {
   files: File[];
   displayFiles: DocumentDisplayFile[];
-  fileStudentMatches: Record<string, FileStudentMatch>;
-  manualTasks: Record<string, ManualResolutionTask[]>;
-  manualTaskResolutions: Record<string, ManualResolutionValue>;
+
+  fileStudentMatches: Record<
+    string,
+    FileStudentMatch
+  >;
+
+  manualTasks: Record<
+    string,
+    ManualResolutionTask[]
+  >;
+
+  manualTaskResolutions: Record<
+    string,
+    ManualResolutionValue
+  >;
+
   students: StudentRecord[];
+
   processedFileKeys: string[];
+  failedFileKeys: string[];
   aiMatchingFileKeys: string[];
+
   isExtracting: boolean;
+  isPreprocessing: boolean;
+
   errorMsg: string;
   conflictMsg: string;
   duplicateMsg: string;
+
   sessionReady: boolean;
   hasPendingFiles: boolean;
-  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemoveFile: (fileKey: string) => void;
-  onResetSession: () => void;
-  onResolveStudent: (
-    fileKey: string,
-    taskKey: string,
-    rowIndex: number
-  ) => void;
-  onIgnoreStudent: (fileKey: string, taskKey: string) => void;
+
   filenameMatchIssues: Record<
     string,
     {
@@ -53,12 +69,82 @@ interface UploadSectionProps {
       detectedName: string;
     }
   >;
+
+  onFileChange: (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => void;
+
+  onRemoveFile: (
+    fileKey: string,
+    studentRowIndex: number | null
+  ) => void;
+
+  onResetSession: () => void;
+
+  onResolveStudent: (
+    fileKey: string,
+    taskKey: string,
+    rowIndex: number
+  ) => void;
+
+  onIgnoreStudent: (
+    fileKey: string,
+    taskKey: string
+  ) => void;
 }
 
 interface FileStatus {
   label: string;
   className: string;
 }
+
+interface SaveFilePickerOptions {
+  suggestedName?: string;
+  types?: {
+    description?: string;
+    accept: Record<
+      string,
+      string[]
+    >;
+  }[];
+}
+
+interface WritableFileHandle {
+  createWritable: () => Promise<{
+    write: (
+      data: Blob
+    ) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+}
+
+interface DirectoryFileHandle {
+  createWritable: () => Promise<{
+    write: (
+      data: Blob
+    ) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+}
+
+interface DirectoryHandle {
+  getFileHandle: (
+    name: string,
+    options: {
+      create: boolean;
+    }
+  ) => Promise<DirectoryFileHandle>;
+}
+
+type FilePickerWindow =
+  typeof window & {
+    showSaveFilePicker?: (
+      options?: SaveFilePickerOptions
+    ) => Promise<WritableFileHandle>;
+
+    showDirectoryPicker?: () =>
+      Promise<DirectoryHandle>;
+  };
 
 export default function UploadSection({
   files,
@@ -69,8 +155,10 @@ export default function UploadSection({
   manualTaskResolutions,
   students,
   processedFileKeys,
+  failedFileKeys,
   aiMatchingFileKeys,
   isExtracting,
+  isPreprocessing,
   errorMsg,
   conflictMsg,
   duplicateMsg,
@@ -85,36 +173,126 @@ export default function UploadSection({
   const [resolvingTaskKey, setResolvingTaskKey] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
   const [showUploadPicker, setShowUploadPicker] = useState(false);
-
+  const fileInputRef =
+    useRef<HTMLInputElement>(
+      null
+    );
   const compactQueueMode = displayFiles.length > 2;
-  const showMainUploader = !compactQueueMode || showUploadPicker;
+
+  useEffect(() => {
+    if (compactQueueMode) setShowUploadPicker(false);
+  }, [compactQueueMode]);
+
+  const handlePickerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    onFileChange(event);
+    if (compactQueueMode) setShowUploadPicker(false);
+  };
 
   const processedFiles = new Set(processedFileKeys);
+  const failedFiles = new Set(failedFileKeys);
   const aiMatchingFiles = new Set(aiMatchingFileKeys);
   const hasBlockingIssue = Boolean(conflictMsg || duplicateMsg);
 
-  const hasOnlyNotFoundFiles =
-    files.length > 0 &&
-    displayFiles.length > 0 &&
-    displayFiles.every((item) => filenameMatchIssues[item.fileKey]?.status === "not-found");
+  const isBusy =
+    isPreprocessing ||
+    isExtracting;
 
-  const showExtractingState = isExtracting && !hasOnlyNotFoundFiles;
+  const sortedDisplayFiles =
+    useMemo(() => {
+      return [...displayFiles]
+        .map((item, originalIndex) => ({
+          item,
+          originalIndex,
+        }))
+        .sort((a, b) => {
+          const aRenamed =
+            a.item.renamed;
 
-  const sortedDisplayFiles = useMemo(() => {
-    return [...displayFiles].sort((a, b) => {
-      const nameA = (a.studentName || a.displayName || a.originalName || "").trim();
-      const nameB = (b.studentName || b.displayName || b.originalName || "").trim();
-      return nameA.localeCompare(nameB, "id", { sensitivity: "base", numeric: true });
-    });
-  }, [displayFiles]);
+          const bRenamed =
+            b.item.renamed;
 
-  const renamedFiles = sortedDisplayFiles.filter((item) => item.renamed);
+          /*
+           * File yang sudah berhasil
+           * disesuaikan namanya berada
+           * di atas.
+           */
+          if (
+            aRenamed !==
+            bRenamed
+          ) {
+            return aRenamed
+              ? -1
+              : 1;
+          }
+
+          /*
+           * File yang sudah rename
+           * diurutkan A-Z.
+           */
+          if (
+            aRenamed &&
+            bRenamed
+          ) {
+            const nameA =
+              (
+                a.item.studentName ||
+                a.item.displayName ||
+                ""
+              ).trim();
+
+            const nameB =
+              (
+                b.item.studentName ||
+                b.item.displayName ||
+                ""
+              ).trim();
+
+            return nameA.localeCompare(
+              nameB,
+              "id",
+              {
+                sensitivity:
+                  "base",
+                numeric: true,
+              }
+            );
+          }
+
+          /*
+           * File yang belum rename
+           * tetap mempertahankan
+           * urutan asal.
+           */
+          return (
+            a.originalIndex -
+            b.originalIndex
+          );
+        })
+        .map(
+          ({ item }) =>
+            item
+        );
+    }, [displayFiles]);
+
+  const renamedFiles =
+    sortedDisplayFiles.filter(
+      (item) =>
+        item.renamed
+    );
 
   const canonicalStudents = [
     ...new Set(
       renamedFiles
-        .map((item) => item.studentName?.trim())
-        .filter((name): name is string => Boolean(name))
+        .map(
+          (item) =>
+            item.studentName?.trim()
+        )
+        .filter(
+          (
+            name
+          ): name is string =>
+            Boolean(name)
+        )
     ),
   ];
 
@@ -125,17 +303,34 @@ export default function UploadSection({
         ? `${canonicalStudents.length} murid`
         : "";
 
-  const firstOutputKeyByFile = useMemo(() => {
-    const result = new Map<string, string>();
+  const firstOutputKeyByFile =
+    useMemo(() => {
+      const result =
+        new Map<
+          string,
+          string
+        >();
 
-    for (const item of sortedDisplayFiles) {
-      if (!result.has(item.fileKey)) {
-        result.set(item.fileKey, item.outputKey);
+      for (
+        const item
+        of sortedDisplayFiles
+      ) {
+        if (
+          !result.has(
+            item.fileKey
+          )
+        ) {
+          result.set(
+            item.fileKey,
+            item.outputKey
+          );
+        }
       }
-    }
 
-    return result;
-  }, [sortedDisplayFiles]);
+      return result;
+    }, [
+      sortedDisplayFiles,
+    ]);
 
   const unresolvedTasksByFile = useMemo(() => {
     return Object.fromEntries(
@@ -151,74 +346,111 @@ export default function UploadSection({
     ) as Record<string, ManualResolutionTask[]>;
   }, [manualTasks, manualTaskResolutions]);
 
-  const getFileStatus = (displayFile: DocumentDisplayFile): FileStatus => {
-  const fileKey = displayFile.fileKey;
-  const fileMatch = fileStudentMatches[fileKey];
-  const isProcessed = processedFiles.has(fileKey);
-  const isAiMatching = aiMatchingFiles.has(fileKey);
-  const unresolvedTasks = unresolvedTasksByFile[fileKey]?.length ?? 0;
+  const getFileStatus = (
+    displayFile: DocumentDisplayFile
+  ): FileStatus => {
+    const fileKey = displayFile.fileKey;
+    const fileMatch = fileStudentMatches[fileKey];
+    const isProcessed = processedFiles.has(fileKey);
+    const isAiMatching = aiMatchingFiles.has(fileKey);
+    const isFailed = failedFiles.has(fileKey);
+    const unresolvedTasks =
+      unresolvedTasksByFile[fileKey]?.length ?? 0;
 
-  if (conflictMsg && (fileMatch?.rowIndexes.length ?? 0) > 0) {
+    if (isFailed) {
+      return {
+        label: "Gagal",
+        className: "bg-red-50 text-red-600",
+      };
+    }
+
+    if (
+      conflictMsg &&
+      (fileMatch?.rowIndexes.length ?? 0) > 0
+    ) {
+      return {
+        label: "Konflik",
+        className: "bg-red-50 text-red-600",
+      };
+    }
+
+    if (isAiMatching) {
+      return {
+        label: "Mencocokkan",
+        className: "bg-violet-50 text-violet-700",
+      };
+    }
+
+    if (
+      !isProcessed &&
+      (isExtracting || hasPendingFiles)
+    ) {
+      return {
+        label: "Memproses",
+        className: "bg-blue-50 text-blue-600",
+      };
+    }
+
+    const filenameIssue =
+      filenameMatchIssues[fileKey];
+
+    if (
+      filenameIssue?.status === "not-found"
+    ) {
+      return {
+        label: "Tidak terdaftar",
+        className: "bg-red-50 text-red-600",
+      };
+    }
+
+    if (unresolvedTasks > 0) {
+      return {
+        label: "Perlu dipilih",
+        className: "bg-amber-50 text-amber-700",
+      };
+    }
+
+    const isSupportedDocument =
+      displayFile.documentType === "kk" ||
+      displayFile.documentType === "akta" ||
+      displayFile.documentType === "both";
+
+    if (
+      (fileMatch?.rowIndexes.length ?? 0) > 0 &&
+      isSupportedDocument &&
+      isProcessed
+    ) {
+      return {
+        label: "Berhasil",
+        className:
+          "bg-emerald-50 text-emerald-700",
+      };
+    }
+
+    if (
+      isProcessed &&
+      !isSupportedDocument
+    ) {
+      return {
+        label: "Bukan KK/Akta",
+        className:
+          "bg-gray-100 text-gray-500",
+      };
+    }
+
+    if (isProcessed) {
+      return {
+        label: "Mengidentifikasi",
+        className:
+          "bg-gray-100 text-gray-600",
+      };
+    }
+
     return {
-      label: "Konflik",
-      className: "bg-red-50 text-red-600",
+      label: "Siap",
+      className: "bg-gray-100 text-gray-500",
     };
-  }
-
-  if (isAiMatching) {
-    return {
-      label: "Mencocokkan",
-      className: "bg-violet-50 text-violet-700",
-    };
-  }
-
-  // Selama extraction belum selesai, status tetap Memproses.
-  if (!isProcessed && (isExtracting || hasPendingFiles)) {
-    return {
-      label: "Memproses",
-      className: "bg-blue-50 text-blue-600",
-    };
-  }
-
-  const filenameIssue = filenameMatchIssues[fileKey];
-
-  if (filenameIssue?.status === "not-found") {
-    return {
-      label: "Tidak terdaftar",
-      className: "bg-red-50 text-red-600",
-    };
-  }
-
-  if (unresolvedTasks > 0) {
-    return {
-      label: "Perlu dipilih",
-      className: "bg-amber-50 text-amber-700",
-    };
-  }
-
-  if (
-    (fileMatch?.rowIndexes.length ?? 0) > 0 &&
-    displayFile.documentType &&
-    isProcessed
-  ) {
-    return {
-      label: "Berhasil",
-      className: "bg-emerald-50 text-emerald-700",
-    };
-  }
-
-  if (isProcessed) {
-    return {
-      label: "Mengidentifikasi",
-      className: "bg-gray-100 text-gray-600",
-    };
-  }
-
-  return {
-    label: "Siap",
-    className: "bg-gray-100 text-gray-500",
   };
-};
 
   const getMatchMethod = (displayFile: DocumentDisplayFile) => {
     const match = fileStudentMatches[displayFile.fileKey];
@@ -255,170 +487,312 @@ export default function UploadSection({
       .slice(0, 8);
   };
 
-  const handleSaveRenamedFile = (
+  const downloadFileFallback = (
     displayFile: DocumentDisplayFile
   ) => {
-    if (!displayFile.renamed || hasBlockingIssue) return;
+    const url =
+      URL.createObjectURL(
+        displayFile.file
+      );
 
-    const url = URL.createObjectURL(displayFile.file);
-    const anchor = document.createElement("a");
+    const anchor =
+      document.createElement("a");
 
     anchor.href = url;
-    anchor.download = displayFile.displayName;
+    anchor.download =
+      displayFile.displayName;
 
-    document.body.appendChild(anchor);
+    document.body.appendChild(
+      anchor
+    );
+
     anchor.click();
     anchor.remove();
 
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    window.setTimeout(
+      () =>
+        URL.revokeObjectURL(
+          url
+        ),
+      1000
+    );
   };
 
-  const handleSaveAllRenamedFiles = () => {
-    if (hasBlockingIssue) return;
+  const handleSaveRenamedFile =
+    async (
+      displayFile:
+        DocumentDisplayFile
+    ) => {
+      if (
+        !displayFile.renamed ||
+        hasBlockingIssue
+      ) {
+        return;
+      }
 
-    renamedFiles.forEach((displayFile, index) => {
-      window.setTimeout(
-        () => handleSaveRenamedFile(displayFile),
-        index * 150
-      );
-    });
-  };
+      const pickerWindow =
+        window as FilePickerWindow;
+
+      /*
+       * Browser yang belum mendukung
+       * File System Access API
+       * tetap menggunakan download biasa.
+       */
+      if (
+        !pickerWindow.showSaveFilePicker
+      ) {
+        downloadFileFallback(
+          displayFile
+        );
+
+        return;
+      }
+
+      try {
+        const handle =
+          await pickerWindow
+            .showSaveFilePicker({
+              suggestedName:
+                displayFile
+                  .displayName,
+
+              types: [
+                {
+                  description:
+                    "Dokumen PDF",
+
+                  accept: {
+                    "application/pdf":
+                      [".pdf"],
+                  },
+                },
+              ],
+            });
+
+        const writable =
+          await handle
+            .createWritable();
+
+        await writable.write(
+          displayFile.file
+        );
+
+        await writable.close();
+      } catch (error) {
+        /*
+         * User menekan Cancel pada
+         * dialog Save As.
+         */
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "[SAVE PDF]",
+          error
+        );
+      }
+    };
+
+  const handleSaveAllRenamedFiles =
+    async () => {
+      if (
+        hasBlockingIssue ||
+        renamedFiles.length === 0
+      ) {
+        return;
+      }
+
+      const pickerWindow =
+        window as FilePickerWindow;
+
+      /*
+       * Kalau browser belum
+       * mendukung pemilihan folder,
+       * gunakan download lama.
+       */
+      if (
+        !pickerWindow.showDirectoryPicker
+      ) {
+        renamedFiles.forEach(
+          (
+            displayFile,
+            index
+          ) => {
+            window.setTimeout(
+              () =>
+                downloadFileFallback(
+                  displayFile
+                ),
+              index * 150
+            );
+          }
+        );
+
+        return;
+      }
+
+      try {
+        const directoryHandle =
+          await pickerWindow
+            .showDirectoryPicker();
+
+        for (
+          const displayFile
+          of renamedFiles
+        ) {
+          const fileHandle =
+            await directoryHandle
+              .getFileHandle(
+                displayFile
+                  .displayName,
+                {
+                  create: true,
+                }
+              );
+
+          const writable =
+            await fileHandle
+              .createWritable();
+
+          await writable.write(
+            displayFile.file
+          );
+
+          await writable.close();
+        }
+      } catch (error) {
+        /*
+         * User menekan Cancel pada
+         * dialog pemilihan folder.
+         */
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "[SAVE ALL PDF]",
+          error
+        );
+      }
+    };
 
   const closeStudentPicker = () => {
     setResolvingTaskKey("");
     setStudentSearch("");
   };
 
-
-
-  useEffect(() => {
-    if (compactQueueMode) setShowUploadPicker(false);
-  }, [compactQueueMode]);
-
-  const handlePickerChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    onFileChange(event);
-  };
-
   return (
     <div className="flex h-[516px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <div className="border-b border-gray-100 px-5 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                className="h-5 w-5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 16V4m0 0L8 8m4-4 4 4"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 14v4.25A1.75 1.75 0 0 0 6.75 20h10.5A1.75 1.75 0 0 0 19 18.25V14"
-                />
-              </svg>
-            </div>
-
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900">
-                {compactQueueMode && !showUploadPicker ? "Antrean Dokumen" : "Tambahkan Dokumen"}
-              </h2>
-              <p className="text-xs text-gray-500">
-                {compactQueueMode && !showUploadPicker
-                  ? "Kelola dokumen yang sedang diproses"
-                  : "Upload KK dan Akta Kelahiran dalam format PDF"}
-              </p>
-            </div>
+      <input
+  ref={fileInputRef}
+  type="file"
+  accept="application/pdf"
+  multiple
+  onChange={handlePickerChange}
+  disabled={isBusy}
+  className="hidden"
+/>
+      <div className="flex min-h-[73px] items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="h-5 w-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 16V4m0 0L8 8m4-4 4 4"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 14v4.25A1.75 1.75 0 0 0 6.75 20h10.5A1.75 1.75 0 0 0 19 18.25V14"
+              />
+            </svg>
           </div>
 
-          {compactQueueMode && showUploadPicker && (
-            <button
-              type="button"
-              onClick={() => setShowUploadPicker(false)}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-gray-100 px-3 text-[10px] font-medium text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-800"
-            >
-              <span aria-hidden="true">←</span>
-              Kembali ke antrean
-            </button>
-          )}
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-gray-900">
+              Tambahkan Dokumen
+            </h2>
+            <p className="text-xs text-gray-500">
+              Upload KK dan Akta Kelahiran dalam format PDF
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col p-5">
-        {showMainUploader && (
-          <label
-            className={`group flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-5 py-8 text-center transition-colors ${showExtractingState
-              ? "cursor-not-allowed border-gray-200 bg-gray-50"
-              : "cursor-pointer border-gray-300 bg-gray-50/70 hover:border-blue-400 hover:bg-blue-50/40"
-              }`}
-          >
-            {showExtractingState ? (
-              <>
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
-                  <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+        {(!compactQueueMode || showUploadPicker) && (
+          <>
+            {compactQueueMode && (
+              <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-700">Tambah dokumen</p>
+                  <p className="mt-0.5 text-[10px] text-gray-400">Pilih PDF baru untuk dimasukkan ke antrean.</p>
                 </div>
-                <span className="text-sm font-semibold text-gray-700">
-                  Sedang memproses dokumen
-                </span>
-                <span className="mt-1 max-w-[280px] text-xs leading-5 text-gray-400">
-                  AI sedang membaca dan mengekstrak data dari dokumen.
-                  Mohon tunggu beberapa saat.
-                </span>
-              </>
-            ) : (
-              <>
-                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm ring-1 ring-gray-100 transition-colors group-hover:text-blue-500">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    className="h-6 w-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M7 3.75h6.5L18.25 8.5V20A1.25 1.25 0 0 1 17 21.25H7A1.25 1.25 0 0 1 5.75 20V5A1.25 1.25 0 0 1 7 3.75Z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M13.5 3.75V8.5h4.75"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 14h6M12 11v6"
-                    />
-                  </svg>
-                </div>
-
-                <span className="text-sm font-medium text-gray-700">
-                  Pilih dokumen PDF
-                </span>
-                <span className="mt-1 text-xs text-gray-400">
-                  File akan langsung diekstrak setelah dipilih
-                </span>
-              </>
+                <button type="button" onClick={() => setShowUploadPicker(false)} disabled={isBusy} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-[10px] font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="m12 5-5 5 5 5" /></svg>
+                  Kembali ke antrean
+                </button>
+              </div>
             )}
 
-            <input
-              type="file"
-              accept="application/pdf"
-              multiple
-              onChange={handlePickerChange}
-              disabled={showExtractingState}
-              className="hidden"
-            />
-          </label>
+<label
+  onClick={() => {
+    if (!isBusy) {
+      fileInputRef.current?.click();
+    }
+  }}
+  className={`group flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-5 py-8 text-center transition-colors ${
+    isBusy
+      ? "cursor-not-allowed border-gray-200 bg-gray-50"
+      : "cursor-pointer border-gray-300 bg-gray-50/70 hover:border-blue-400 hover:bg-blue-50/40"
+  }`}
+>
+              {isBusy ? (
+                <>
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {isPreprocessing
+                      ? "Sedang menyiapkan dokumen"
+                      : "Sedang memproses dokumen"}
+                  </span>
+
+                  <span className="mt-1 max-w-[280px] text-xs leading-5 text-gray-400">
+                    {isPreprocessing
+                      ? "Dokumen sedang dipisahkan dan diperiksa sebelum proses ekstraksi."
+                      : "AI sedang membaca dan mengekstrak data dari dokumen. Mohon tunggu beberapa saat."}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm ring-1 ring-gray-100 transition-colors group-hover:text-blue-500">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-6 w-6">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 3.75h6.5L18.25 8.5V20A1.25 1.25 0 0 1 17 21.25H7A1.25 1.25 0 0 1 5.75 20V5A1.25 1.25 0 0 1 7 3.75Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 3.75V8.5h4.75" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14h6M12 11v6" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Pilih dokumen PDF</span>
+                  <span className="mt-1 text-xs text-gray-400">File akan langsung diekstrak setelah dipilih</span>
+                </>
+              )}
+            </label>
+          </>
         )}
 
         {files.length > 0 && (!compactQueueMode || !showUploadPicker) && (
@@ -427,7 +801,7 @@ export default function UploadSection({
               <div>
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-semibold text-gray-700">
-                    {compactQueueMode ? "Dokumen dalam antrean" : "Antrean Dokumen"}
+                    Antrean Dokumen
                   </p>
 
                   {sessionReady && (
@@ -447,13 +821,10 @@ export default function UploadSection({
 
               <div className="flex shrink-0 items-center gap-2">
                 {compactQueueMode && (
-                  <button
-                    type="button"
-                    onClick={() => setShowUploadPicker(true)}
-                    disabled={isExtracting}
-                    className="inline-flex h-7 items-center gap-1.5 rounded-md bg-blue-50 px-2.5 text-[10px] font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <span className="text-sm leading-none">+</span>
+                  <button type="button" onClick={() => {
+                    fileInputRef.current?.click();
+                  }} disabled={isBusy} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-blue-100 bg-blue-50 px-2.5 text-[10px] font-medium text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-40">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-3.5 w-3.5"><path strokeLinecap="round" d="M10 4v12M4 10h12" /></svg>
                     Tambah dokumen
                   </button>
                 )}
@@ -462,7 +833,7 @@ export default function UploadSection({
                   <button
                     type="button"
                     onClick={handleSaveAllRenamedFiles}
-                    disabled={isExtracting}
+                    disabled={isBusy}
                     className="inline-flex h-7 items-center gap-1.5 rounded-md bg-gray-900 px-2.5 text-[10px] font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <svg
@@ -711,7 +1082,7 @@ export default function UploadSection({
                           onClick={() =>
                             handleSaveRenamedFile(displayFile)
                           }
-                          disabled={isExtracting}
+                          disabled={isBusy}
                           title="Simpan file dengan nama baru"
                           className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
                           aria-label={`Simpan ${displayFile.displayName}`}
@@ -740,9 +1111,12 @@ export default function UploadSection({
                       <button
                         type="button"
                         onClick={() =>
-                          onRemoveFile(displayFile.fileKey)
+                          onRemoveFile(
+                            displayFile.fileKey,
+                            displayFile.studentRowIndex
+                          )
                         }
-                        disabled={isExtracting}
+                        disabled={isBusy}
                         title="Hapus file sumber"
                         className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
                         aria-label={`Hapus ${displayFile.displayName}`}
@@ -778,7 +1152,7 @@ export default function UploadSection({
               <button
                 type="button"
                 onClick={onResetSession}
-                disabled={isExtracting}
+                disabled={isBusy}
                 className="inline-flex h-7 shrink-0 items-center rounded-md bg-red-100 px-2.5 text-[10px] font-medium text-red-700 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Mulai ulang

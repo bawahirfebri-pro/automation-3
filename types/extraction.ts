@@ -22,4 +22,8 @@ export type ExtractionResult =
         kk?: string;
         akta?: string;
       };
+    }
+  | {
+      type: "unknown";
+      data: null;
     };

@@ -4,12 +4,36 @@ import { formatTeksTampilan } from "@/lib/text-formatter";
 interface AktaPanelProps {
   data: AktaResult | null;
   modelUsed: string;
+  isLoading?: boolean;
 }
 
 export default function AktaPanel({
   data,
   modelUsed,
+  isLoading = false,
 }: AktaPanelProps) {
+if (isLoading) {
+  return (
+    <section className="col-span-12 lg:col-span-6">
+      <div className="flex min-h-[408px] items-center justify-center rounded-2xl border border-gray-200 bg-white">
+        <div className="flex flex-col items-center px-6 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+          </div>
+
+          <p className="text-sm font-semibold text-gray-700">
+            Memuat data Akta Kelahiran
+          </p>
+
+          <p className="mt-1 max-w-[280px] text-xs leading-5 text-gray-400">
+            Sedang menyiapkan data siswa yang dipilih. Mohon tunggu beberapa saat.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
   if (!data) {
     return (
       <section className="col-span-12 lg:col-span-6">

@@ -1,5 +1,6 @@
 export interface StudentRecord {
   rowIndex: number;
+  nik: string;
   nama: string;
   kelas: string;
   rombel: string;

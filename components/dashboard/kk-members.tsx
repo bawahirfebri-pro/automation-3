@@ -4,6 +4,7 @@ import { formatTeksTampilan } from "@/lib/text-formatter";
 interface KkMembersProps {
   data: KkResult | null;
   studentName: string;
+  isLoading?: boolean;
 }
 
 const normalizeName = (value: string): string => {
@@ -38,7 +39,29 @@ function getJenisKelaminBadgeClass(
 export default function KkMembers({
   data,
   studentName,
+  isLoading = false,
 }: KkMembersProps) {
+if (isLoading) {
+  return (
+    <section className="col-span-12">
+      <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-gray-200 bg-white">
+        <div className="flex flex-col items-center px-6 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+          </div>
+
+          <p className="text-sm font-semibold text-gray-700">
+            Memuat anggota keluarga
+          </p>
+
+          <p className="mt-1 max-w-[280px] text-xs leading-5 text-gray-400">
+            Sedang menyesuaikan anggota keluarga dengan siswa yang dipilih.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
   if (!data) {
     return (
       <section className="col-span-12">

@@ -127,22 +127,78 @@ export default function StudentPanel({
     const historyMap = useMemo(() => new Map(history.map((item) => [normalize(item.studentName), item])), [history]);
 
     useEffect(() => {
-        if (detectedKey === previousDetectedKeyRef.current) return;
+    if (
+        detectedKey ===
+        previousDetectedKeyRef.current
+    ) {
+        return;
+    }
 
-        previousDetectedKeyRef.current = detectedKey;
-        lastAutoScrolledKeyRef.current = "";
+    previousDetectedKeyRef.current =
+        detectedKey;
 
-        if (detectedCount > 1) {
-            setActiveTab("detected");
-            setSearch("");
-            setSelectedKelas("");
-            setSelectedRombel("");
-            setSelectedStatus("");
-            return;
+    lastAutoScrolledKeyRef.current =
+        "";
+
+    if (detectedCount > 1) {
+        setActiveTab("detected");
+        setSearch("");
+        setSelectedKelas("");
+        setSelectedRombel("");
+        setSelectedStatus("");
+
+        /*
+         * detectedStudents sudah
+         * diurutkan berdasarkan nama A-Z.
+         *
+         * Jadi index 0 adalah murid
+         * pertama secara alfabet.
+         */
+        const firstDetectedStudent =
+            detectedStudents[0];
+
+        if (
+            firstDetectedStudent &&
+            activeRowIndex !==
+                firstDetectedStudent.rowIndex
+        ) {
+            onSelect(
+                firstDetectedStudent
+            );
         }
 
-        setActiveTab("all");
-    }, [detectedKey, detectedCount]);
+        return;
+    }
+
+    setActiveTab("all");
+
+    /*
+     * Kalau hanya satu murid
+     * terdeteksi, jadikan dia aktif
+     * juga supaya highlight dan URL
+     * konsisten.
+     */
+    if (detectedCount === 1) {
+        const firstDetectedStudent =
+            detectedStudents[0];
+
+        if (
+            firstDetectedStudent &&
+            activeRowIndex !==
+                firstDetectedStudent.rowIndex
+        ) {
+            onSelect(
+                firstDetectedStudent
+            );
+        }
+    }
+}, [
+    detectedKey,
+    detectedCount,
+    detectedStudents,
+    activeRowIndex,
+    onSelect,
+]);
 
     const kelasOptions = useMemo(
         () => [...new Set(students.map((student) => student.kelas).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id", { numeric: true })),

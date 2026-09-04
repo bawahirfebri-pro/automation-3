@@ -41,13 +41,38 @@ export async function GET() {
     const students: StudentRecord[] = rows
       .map((row) => {
         const student = {
-          rowIndex: row.rowNumber,
-          nama: row.get("Nama")?.toString().trim() || "",
-          kelas: row.get("Kelas")?.toString().trim() || "",
-          rombel: row.get("Rombel")?.toString().trim() || "",
-          noKk: row.get("No. Kartu Keluarga")?.toString().trim() || "",
-          noAkta: row.get("No. Akta Kelahiran")?.toString().trim() || "",
-        };
+  rowIndex: row.rowNumber,
+  nik:
+    row
+      .get("NIK")
+      ?.toString()
+      .trim() || "",
+  nama:
+    row
+      .get("Nama")
+      ?.toString()
+      .trim() || "",
+  kelas:
+    row
+      .get("Kelas")
+      ?.toString()
+      .trim() || "",
+  rombel:
+    row
+      .get("Rombel")
+      ?.toString()
+      .trim() || "",
+  noKk:
+    row
+      .get("No. Kartu Keluarga")
+      ?.toString()
+      .trim() || "",
+  noAkta:
+    row
+      .get("No. Akta Kelahiran")
+      ?.toString()
+      .trim() || "",
+};
 
         return applyStudentCompleteness(student);
       })

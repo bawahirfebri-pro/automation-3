@@ -1,0 +1,266 @@
+﻿FILE: next-env.d.ts
+  -> ./.next/dev/types/routes.d.ts
+  -> ./.next/dev/types/root-params.d.ts
+
+FILE: next.config.ts
+  -> next
+
+FILE: app\layout.tsx
+  -> next
+  -> next/font/google
+  -> ./globals.css
+
+FILE: app\page.tsx
+  -> react
+  -> @/components/upload-section
+  -> @/components/dashboard/dashboard-layout
+  -> @/components/dashboard/dashboard-content
+  -> @/components/dashboard/student-panel
+  -> @/components/dashboard/kk-summary
+  -> @/components/dashboard/kk-members
+  -> @/components/dashboard/akta-panel
+  -> @/lib/document-name
+  -> @/lib/canonical-file-name
+  -> @/lib/file-student-matcher
+  -> @/lib/student-matcher
+  -> @/lib/api/students
+  -> @/hooks/use-document-extraction
+  -> @/hooks/use-document-files
+  -> @/hooks/use-extraction-history
+  -> @/hooks/use-students
+  -> @/hooks/use-save-to-sheet
+  -> @/types/student
+  -> @/types/document-file
+  -> @/types/kk
+  -> @/types/akta
+  -> @/lib/pdf-splitter
+  -> @/lib/api/kk-page-identity
+  -> @/lib/kk-page-grouper
+
+FILE: app\api\check-gemini\route.ts
+  -> @google/genai
+  -> next/server
+
+FILE: app\api\extract\akta\route.ts
+  -> next/server
+  -> @/lib/extraction/akta-extraction
+
+FILE: app\api\extract\classify\route.ts
+  -> next/server
+  -> @/lib/extraction/document-classifier
+
+FILE: app\api\extract\kk\route.ts
+  -> next/server
+  -> @/lib/extraction/kk-extraction
+
+FILE: app\api\kk-page-identity\route.ts
+  -> next/server
+  -> @/lib/kk-page-identity
+
+FILE: app\api\students\route.ts
+  -> next/server
+  -> google-spreadsheet
+  -> google-auth-library
+  -> @/lib/student-completeness
+  -> @/types/student
+
+FILE: app\api\students\match\route.ts
+  -> next/server
+  -> @/lib/student-ai-matcher
+
+FILE: app\api\students\[rowIndex]\route.ts
+  -> (tidak ada import)
+
+FILE: app\[nik]\page.tsx
+  -> (tidak ada import)
+
+FILE: components\save-section.tsx
+  -> (tidak ada import)
+
+FILE: components\upload-section.tsx
+  -> react
+  -> @/types/document-file
+  -> @/types/student
+  -> @/lib/file-student-matcher
+
+FILE: components\dashboard\akta-panel.tsx
+  -> @/types/akta
+  -> @/lib/text-formatter
+
+FILE: components\dashboard\dashboard-content.tsx
+  -> react
+
+FILE: components\dashboard\dashboard-layout.tsx
+  -> react
+
+FILE: components\dashboard\history-panel.tsx
+  -> react
+  -> @/types/extraction-history
+
+FILE: components\dashboard\kk-members.tsx
+  -> @/types/kk
+  -> @/lib/text-formatter
+
+FILE: components\dashboard\kk-summary.tsx
+  -> @/types/kk
+  -> @/lib/text-formatter
+
+FILE: components\dashboard\save-panel.tsx
+  -> @/components/save-section
+
+FILE: components\dashboard\student-panel.tsx
+  -> react
+  -> @/types/extraction-history
+  -> @/types/student
+
+FILE: hooks\use-document-extraction.ts
+  -> react
+  -> @/lib/extraction/document-extraction
+  -> @/types/akta
+  -> @/types/kk
+
+FILE: hooks\use-document-files.ts
+  -> react
+
+FILE: hooks\use-extraction-history.ts
+  -> react
+  -> @/lib/extraction-history
+  -> @/types/extraction-history
+
+FILE: hooks\use-save-to-sheet.ts
+  -> react
+  -> @/lib/api/sheet
+  -> @/types/akta
+  -> @/types/kk
+
+FILE: hooks\use-students.ts
+  -> react
+  -> @/types/student
+
+FILE: lib\canonical-file-name.ts
+  -> @/hooks/use-document-extraction
+
+FILE: lib\document-name.ts
+  -> (tidak ada import)
+
+FILE: lib\extraction-history.ts
+  -> @/types/extraction-history
+
+FILE: lib\file-student-matcher.ts
+  -> @/hooks/use-document-extraction
+  -> @/types/student
+  -> @/lib/student-matcher
+  -> @/lib/kk-student-eligibility
+
+FILE: lib\kk-page-grouper.ts
+  -> @/lib/pdf-splitter
+
+FILE: lib\kk-page-identity.ts
+  -> @google/genai
+
+FILE: lib\kk-student-eligibility.ts
+  -> @/types/kk
+
+FILE: lib\nik-parser.ts
+  -> (tidak ada import)
+
+FILE: lib\pdf-splitter.ts
+  -> pdf-lib
+
+FILE: lib\sheet-mapper.ts
+  -> google-spreadsheet
+  -> @/types/akta
+  -> @/types/kk
+  -> @/lib/text-formatter
+
+FILE: lib\student-ai-matcher.ts
+  -> @google/genai
+
+FILE: lib\student-completeness.ts
+  -> @/types/student
+
+FILE: lib\student-matcher.ts
+  -> @/types/student
+
+FILE: lib\text-formatter.ts
+  -> (tidak ada import)
+
+FILE: lib\validator.ts
+  -> (tidak ada import)
+
+FILE: lib\api\kk-page-identity.ts
+  -> (tidak ada import)
+
+FILE: lib\api\sheet.ts
+  -> @/types/akta
+  -> @/types/kk
+
+FILE: lib\api\students.ts
+  -> @/types/student-detail
+
+FILE: lib\extraction\akta-extraction.ts
+  -> @google/genai
+  -> @/lib/prompts/akta-prompt
+  -> @/lib/validation/akta-schema
+  -> @/types/akta
+
+FILE: lib\extraction\document-classifier.ts
+  -> @google/genai
+
+FILE: lib\extraction\document-extraction.ts
+  -> @/types/akta
+  -> @/types/kk
+  -> @/types/extraction
+
+FILE: lib\extraction\kk-extraction.ts
+  -> @google/genai
+  -> @/lib/prompts/kk-prompt
+  -> @/lib/nik-parser
+  -> @/lib/validation/kk-schema
+  -> @/types/kk
+
+FILE: lib\prompts\akta-prompt.ts
+  -> (tidak ada import)
+
+FILE: lib\prompts\kk-prompt.ts
+  -> (tidak ada import)
+
+FILE: lib\utils\document.ts
+  -> (tidak ada import)
+
+FILE: lib\validation\akta-schema.ts
+  -> zod
+
+FILE: lib\validation\akta-validation.ts
+  -> @/types/akta
+
+FILE: lib\validation\kk-schema.ts
+  -> zod
+
+FILE: lib\validation\kk-validation.ts
+  -> @/types/kk
+
+FILE: types\akta.ts
+  -> (tidak ada import)
+
+FILE: types\document-file.ts
+  -> (tidak ada import)
+
+FILE: types\extraction-history.ts
+  -> @/types/akta
+  -> @/types/kk
+
+FILE: types\extraction.ts
+  -> @/types/akta
+  -> @/types/kk
+
+FILE: types\kk.ts
+  -> (tidak ada import)
+
+FILE: types\student-detail.ts
+  -> @/types/akta
+  -> @/types/kk
+
+FILE: types\student.ts
+  -> (tidak ada import)
+

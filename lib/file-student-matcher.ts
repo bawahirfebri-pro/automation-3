@@ -127,6 +127,95 @@ function getUniqueCandidates(
   });
 }
 
+function getEditDistance(a: string, b: string): number {
+  const previous = Array.from(
+    { length: b.length + 1 },
+    (_, index) => index
+  );
+
+  for (let i = 1; i <= a.length; i += 1) {
+    let diagonal = previous[0];
+    previous[0] = i;
+
+    for (let j = 1; j <= b.length; j += 1) {
+      const old = previous[j];
+
+      previous[j] = Math.min(
+        previous[j] + 1,
+        previous[j - 1] + 1,
+        diagonal + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+
+      diagonal = old;
+    }
+  }
+
+  return previous[b.length];
+}
+
+function isSimpleNameTypo(
+  detectedName: string,
+  studentName: string
+): boolean {
+  const detectedWords =
+    normalizeStudentName(detectedName)
+      .split(" ")
+      .filter(Boolean);
+
+  const studentWords =
+    normalizeStudentName(studentName)
+      .split(" ")
+      .filter(Boolean);
+
+  if (
+    detectedWords.length === 0 ||
+    detectedWords.length !== studentWords.length
+  ) {
+    return false;
+  }
+
+  let changedWords = 0;
+  let totalEdits = 0;
+
+  for (
+    let index = 0;
+    index < detectedWords.length;
+    index += 1
+  ) {
+    const detectedWord = detectedWords[index];
+    const studentWord = studentWords[index];
+
+    if (detectedWord === studentWord) {
+      continue;
+    }
+
+    const distance = getEditDistance(
+      detectedWord,
+      studentWord
+    );
+
+    const longestLength = Math.max(
+      detectedWord.length,
+      studentWord.length
+    );
+
+    const maxWordEdits =
+      longestLength >= 8 ? 2 : 1;
+
+    if (distance > maxWordEdits) {
+      return false;
+    }
+
+    changedWords += 1;
+    totalEdits += distance;
+  }
+
+  return (
+    changedWords <= 2 &&
+    totalEdits <= 2
+  );
+}
+
 function debugKkMembers(extraction: FileExtractionState): void {
   if (!extraction.kk) return;
 
@@ -216,11 +305,25 @@ function createAiTask(
   students: StudentRecord[],
   excludedRows: Set<number>
 ): PendingAiCandidateTask | null {
-  const fuzzyCandidates = getFuzzyStudentCandidates(
+  const fuzzyCandidates =
+  getFuzzyStudentCandidates(
     [candidate],
     students,
     5
-  ).filter(({ student }) => !excludedRows.has(student.rowIndex));
+  )
+    .filter(
+      ({ student }) =>
+        !excludedRows.has(
+          student.rowIndex
+        )
+    )
+    .filter(
+      ({ student }) =>
+        isSimpleNameTypo(
+          candidate.name,
+          student.nama
+        )
+    );
 
   console.log(
     `[KK MATCH DEBUG] AI CANDIDATES "${candidate.name}"`,
@@ -341,34 +444,37 @@ function matchKkStudentsLocally(
       continue;
     }
 
-    const fuzzy = findFuzzyStudentMatch([candidate], students);
+    const fuzzy =
+  findFuzzyStudentMatch(
+    [candidate],
+    students
+  );
 
-    console.log(
-      "FUZZY RESULT",
-      fuzzy
-        ? {
-            rowIndex: fuzzy.student.rowIndex,
-            nama: fuzzy.student.nama,
-            score: fuzzy.score,
-          }
-        : null
-    );
+const simpleTypoMatch =
+  fuzzy &&
+  isSimpleNameTypo(
+    candidate.name,
+    fuzzy.student.nama
+  );
 
-    if (fuzzy && !claimedRows.has(fuzzy.student.rowIndex)) {
-      claimedRows.add(fuzzy.student.rowIndex);
-      fuzzyRows.push(fuzzy.student.rowIndex);
-      locallyMatched += 1;
+if (
+  fuzzy &&
+  simpleTypoMatch &&
+  !claimedRows.has(
+    fuzzy.student.rowIndex
+  )
+) {
+  claimedRows.add(
+    fuzzy.student.rowIndex
+  );
 
-      console.log("RESULT: FUZZY MATCH", {
-        candidate: candidate.name,
-        rowIndex: fuzzy.student.rowIndex,
-        nama: fuzzy.student.nama,
-        score: fuzzy.score,
-      });
+  fuzzyRows.push(
+    fuzzy.student.rowIndex
+  );
 
-      console.groupEnd();
-      continue;
-    }
+  locallyMatched += 1;
+  continue;
+}
 
     const aiTask = createAiTask(candidate, students, claimedRows);
 
@@ -512,17 +618,31 @@ function matchAktaStudentLocally(
 
   const fuzzy = findFuzzyStudentMatch(candidates, students);
 
-  if (fuzzy) {
-    return {
-      match: createFileStudentMatch(
+  if (
+  fuzzy &&
+  isSimpleNameTypo(
+    candidate.name,
+    fuzzy.student.nama
+  )
+) {
+  return {
+    match:
+      createFileStudentMatch(
         [fuzzy.student.rowIndex],
         "fuzzy"
       ),
-      pendingAi: null,
-      manualTasks: [],
-      resolution: createResolution(1, 1, 0, 0, 0),
-    };
-  }
+    pendingAi: null,
+    manualTasks: [],
+    resolution:
+      createResolution(
+        1,
+        1,
+        0,
+        0,
+        0
+      ),
+  };
+}
 
   const aiTask = createAiTask(
     candidate,

@@ -21,6 +21,18 @@ import type { StudentRecord } from "@/types/student";
 import type { DocumentDisplayFile } from "@/types/document-file";
 import type { KkResult } from "@/types/kk";
 import type { AktaResult } from "@/types/akta";
+import {
+  getPdfPageCount,
+  mergePdfParts,
+  splitPdfByPage,
+} from "@/lib/pdf-splitter";
+import {
+  getKkPageIdentity,
+} from "@/lib/api/kk-page-identity";
+import {
+  groupKkPages,
+  type KkPageIdentityResult,
+} from "@/lib/kk-page-grouper";
 type SaveFeedbackStatus = "idle" | "success" | "error";
 type AiTaskOutcomeStatus = "matched" | "rejected" | "failed";
 interface AiTaskOutcome {
@@ -65,20 +77,169 @@ function getNamedStudentRow(file: File, students: StudentRecord[]): number | nul
 
 function getExtractedDocumentName(
   fileKey: string,
-  documentType: "kk" | "akta" | "both" | null,
-  fileExtractions: Record<string, any>
+  documentType:
+    | "kk"
+    | "akta"
+    | "both"
+    | "unknown"
+    | null,
+  fileExtractions:
+    Record<string, any>
 ): string {
   const extraction = fileExtractions[fileKey];
   if (!extraction || !documentType) return "";
 
   if (documentType === "akta" || documentType === "both") {
-    return extraction.akta?.nama_anak?.trim() ?? "";
+    const nama = extraction.akta?.nama_anak?.trim() ?? "";
+    return nama ? toNameCase(nama) : "";
   }
 
   return "";
 }
 
+function toNameCase(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\b\p{L}/gu, (char) => char.toUpperCase());
+}
+async function getKkPageIdentityWithTimeout(
+  file: File,
+  timeoutMs = 15000
+) {
+  return Promise.race([
+    getKkPageIdentity(file),
+
+    new Promise<never>(
+      (_, reject) => {
+        window.setTimeout(
+          () => {
+            reject(
+              new Error(
+                `Timeout membaca identitas ${file.name}`
+              )
+            );
+          },
+          timeoutMs
+        );
+      }
+    ),
+  ]);
+}
+
+function isValidKkNumber(
+  value: string
+): boolean {
+  return /^\d{16}$/.test(
+    value.replace(/\D/g, "")
+  );
+}
+
+function dedupeDocumentFiles(
+  inputFiles: File[]
+): File[] {
+  const seen =
+    new Set<string>();
+
+  return inputFiles.filter(
+    (file) => {
+      const fileKey =
+        getDocumentFileKey(file);
+
+      if (seen.has(fileKey)) {
+        return false;
+      }
+
+      seen.add(fileKey);
+      return true;
+    }
+  );
+}
+
+function getNikFromPathname(
+  pathname: string
+): string {
+  const match =
+    pathname.match(
+      /^\/(\d{16})\/?$/
+    );
+
+  return match?.[1] ?? "";
+}
+
+function setStudentUrl(
+  nik: string | null | undefined
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const normalizedNik =
+    (nik ?? "")
+      .replace(/\D/g, "");
+
+  if (
+    !/^\d{16}$/.test(
+      normalizedNik
+    )
+  ) {
+    if (
+      window.location.pathname !==
+      "/"
+    ) {
+      window.history.pushState(
+        null,
+        "",
+        "/"
+      );
+    }
+
+    return;
+  }
+
+  const nextPath =
+    `/${normalizedNik}`;
+
+  if (
+    window.location.pathname ===
+    nextPath
+  ) {
+    return;
+  }
+
+  window.history.pushState(
+    null,
+    "",
+    nextPath
+  );
+}
+
+function clearStudentUrl() {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  if (
+    window.location.pathname ===
+    "/"
+  ) {
+    return;
+  }
+
+  window.history.pushState(
+    null,
+    "",
+    "/"
+  );
+}
 export default function Home() {
+  const [isPreprocessing, setIsPreprocessing] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [selectedStudentRow, setSelectedStudentRow] = useState<number | null>(null);
   const [studentDetailBaseline, setStudentDetailBaseline] = useState<StudentDetailBaseline | null>(null);
@@ -95,10 +256,11 @@ export default function Home() {
   const [pendingUploadFileKeys, setPendingUploadFileKeys] = useState<string[]>([]);
   const studentRequestIdRef = useRef(0);
   const baselineRequestIdRef = useRef(0);
+  const restoredNikRef = useRef("");
   const saveFeedbackTimersRef = useRef<Record<string, number>>({});
   const aiTaskPayloadKeysRef = useRef<Record<string, string>>({});
   const aiTaskRequestIdsRef = useRef<Record<string, number>>({});
-  const { isExtracting, resultKk, resultAkta, modelUsedKk, modelUsedAkta, processedFileKeys, documentTypes, fileExtractions, errorMsg, extract, removeFileExtraction, restore, reset, } = useDocumentExtraction();
+  const { isExtracting, resultKk, resultAkta, modelUsedKk, modelUsedAkta, processedFileKeys, failedFileKeys, documentTypes, fileExtractions, errorMsg, extract, removeFileExtraction, restore, reset, } = useDocumentExtraction();
   const { history, addOrUpdateHistory, markAsSaved } = useExtractionHistory();
   const { students, loadingStudents, studentError, refreshStudents } = useStudents();
   const { saving: savingAll, save, saveMany } = useSaveToSheet();
@@ -123,8 +285,241 @@ export default function Home() {
       matchFileStudentLocally(extraction, students),
     ]));
   }, [fileExtractions, students]);
+
   const currentFileKeys = useMemo(() => files.map((file) => getDocumentFileKey(file)), [files]);
   const currentFileKeySet = useMemo(() => new Set(currentFileKeys), [currentFileKeys]);
+  useEffect(() => {
+    const processedSet = new Set(processedFileKeys);
+
+    setFilenameMatchIssues((previous) => {
+      const next = { ...previous };
+      let changed = false;
+
+      currentFileKeys.forEach((fileKey) => {
+        if (!processedSet.has(fileKey)) return;
+
+        const extraction = fileExtractions[fileKey];
+        if (!extraction) return;
+
+        const detectedName =
+          extraction.akta?.nama_anak?.trim() ?? "";
+
+        if (!detectedName) return;
+
+        const normalizedDetectedName =
+          normalizeStudentName(detectedName);
+
+        const exactStudents = students.filter(
+          (student) =>
+            normalizeStudentName(student.nama) ===
+            normalizedDetectedName
+        );
+
+        const prefixStudents =
+          exactStudents.length === 0
+            ? students.filter((student) =>
+              normalizeStudentName(student.nama).startsWith(
+                `${normalizedDetectedName} `
+              )
+            )
+            : [];
+
+        const registered =
+          exactStudents.length === 1 ||
+          prefixStudents.length === 1;
+
+        if (!registered) {
+          const currentIssue = next[fileKey];
+
+          if (
+            currentIssue?.status !== "not-found" ||
+            normalizeStudentName(currentIssue.detectedName) !==
+            normalizedDetectedName
+          ) {
+            next[fileKey] = {
+              status: "not-found",
+              detectedName: toNameCase(detectedName),
+            };
+
+            changed = true;
+          }
+
+          return;
+        }
+
+        // Kalau sebelumnya pernah dianggap not-found tetapi
+        // hasil extraction ternyata cocok dengan murid terdaftar,
+        // hapus issue tersebut.
+        if (next[fileKey]) {
+          delete next[fileKey];
+          changed = true;
+        }
+      });
+
+      return changed ? next : previous;
+    });
+  }, [
+    currentFileKeys,
+    processedFileKeys,
+    fileExtractions,
+    students,
+  ]);
+  useEffect(() => {
+    if (files.length <= 1) return;
+
+    const processedSet = new Set(processedFileKeys);
+
+    const candidates = files
+      .map((file) => {
+        const fileKey = getDocumentFileKey(file);
+        const extraction = fileExtractions[fileKey];
+        const issue = filenameMatchIssues[fileKey];
+
+        if (!processedSet.has(fileKey)) return null;
+        if (issue?.status !== "not-found") return null;
+        if (!extraction?.akta) return null;
+
+        const extractedName =
+          extraction.akta.nama_anak?.trim() ?? "";
+
+        if (!extractedName) return null;
+
+        const canonicalName =
+          createCanonicalFileName(
+            toNameCase(extractedName),
+            "akta"
+          );
+
+        return {
+          file,
+          fileKey,
+          canonicalName,
+          identityKey:
+            `${normalizeStudentName(extractedName)}::akta`,
+        };
+      })
+      .filter(
+        (
+          item
+        ): item is {
+          file: File;
+          fileKey: string;
+          canonicalName: string;
+          identityKey: string;
+        } => Boolean(item)
+      );
+
+    if (candidates.length <= 1) return;
+
+    const groups = new Map<
+      string,
+      typeof candidates
+    >();
+
+    candidates.forEach((candidate) => {
+      const group =
+        groups.get(candidate.identityKey) ?? [];
+
+      group.push(candidate);
+      groups.set(candidate.identityKey, group);
+    });
+
+    const duplicateKeys = new Set<string>();
+
+    groups.forEach((group) => {
+      if (group.length <= 1) return;
+
+      /*
+       * Prioritas file yang dipertahankan:
+       * 1. Nama file asli sudah canonical.
+       * 2. Jika tidak ada, file pertama.
+       */
+      const keeper =
+        group.find(
+          (item) =>
+            item.file.name.toLowerCase() ===
+            item.canonicalName.toLowerCase()
+        ) ?? group[0];
+
+      group.forEach((item) => {
+        if (item.fileKey !== keeper.fileKey) {
+          duplicateKeys.add(item.fileKey);
+        }
+      });
+    });
+
+    if (duplicateKeys.size === 0) return;
+
+    const duplicateFiles = files.filter((file) =>
+      duplicateKeys.has(getDocumentFileKey(file))
+    );
+
+    duplicateFiles.forEach((file) => {
+      const fileKey = getDocumentFileKey(file);
+
+      invalidateAiTasksForFile(fileKey);
+      removeFileExtraction(file);
+    });
+
+    setFileStudentMatches((previous) => {
+      const next = { ...previous };
+
+      duplicateKeys.forEach((fileKey) => {
+        delete next[fileKey];
+      });
+
+      return next;
+    });
+
+    setFileStudentScopes((previous) => {
+      const next = { ...previous };
+
+      duplicateKeys.forEach((fileKey) => {
+        delete next[fileKey];
+      });
+
+      return next;
+    });
+
+    setFilenameMatchIssues((previous) => {
+      const next = { ...previous };
+
+      duplicateKeys.forEach((fileKey) => {
+        delete next[fileKey];
+      });
+
+      return next;
+    });
+
+    setPendingUploadFileKeys((previous) =>
+      previous.filter(
+        (fileKey) => !duplicateKeys.has(fileKey)
+      )
+    );
+
+    setDetectedFileKeys((previous) =>
+      previous.filter(
+        (fileKey) => !duplicateKeys.has(fileKey)
+      )
+    );
+
+    replaceFiles(
+      files.filter(
+        (file) =>
+          !duplicateKeys.has(
+            getDocumentFileKey(file)
+          )
+      )
+    );
+  }, [
+    files,
+    processedFileKeys,
+    fileExtractions,
+    filenameMatchIssues,
+    replaceFiles,
+    removeFileExtraction,
+  ]);
+
   useEffect(() => {
     setFileStudentMatches((previous) => {
       const next: Record<string, FileStudentMatch> = {};
@@ -437,6 +832,95 @@ export default function Home() {
   ]);
 
   useEffect(() => {
+    if (
+      currentFileKeys.length === 0
+    ) {
+      return;
+    }
+
+    const kkFiles =
+      files.filter((file) => {
+        const fileKey =
+          getDocumentFileKey(file);
+
+        return Boolean(
+          fileExtractions[fileKey]?.kk
+        );
+      });
+
+    if (kkFiles.length === 0) {
+      return;
+    }
+
+    console.group(
+      "========== [KK UNIT MATCH DEBUG] =========="
+    );
+
+    kkFiles.forEach((file) => {
+      const fileKey =
+        getDocumentFileKey(file);
+
+      const rawRows =
+        fileStudentMatches[
+          fileKey
+        ]?.rowIndexes ?? [];
+
+      const scopedRows =
+        scopedRowsByFile[
+        fileKey
+        ] ?? [];
+
+      const rawStudents =
+        rawRows
+          .map(
+            (rowIndex) =>
+              students.find(
+                (student) =>
+                  student.rowIndex ===
+                  rowIndex
+              )?.nama
+          )
+          .filter(Boolean);
+
+      const scopedStudents =
+        scopedRows
+          .map(
+            (rowIndex) =>
+              students.find(
+                (student) =>
+                  student.rowIndex ===
+                  rowIndex
+              )?.nama
+          )
+          .filter(Boolean);
+
+      console.log({
+        file:
+          file.name,
+
+        fileKey,
+
+        rawRows,
+
+        rawStudents,
+
+        scopedRows,
+
+        scopedStudents,
+      });
+    });
+
+    console.groupEnd();
+  }, [
+    files,
+    currentFileKeys,
+    fileExtractions,
+    fileStudentMatches,
+    scopedRowsByFile,
+    students,
+  ]);
+
+  useEffect(() => {
     console.group("========== [SESSION DEBUG] ==========");
 
     console.log(
@@ -512,15 +996,39 @@ export default function Home() {
       setDetectedStudentRowIndexes([]);
       return;
     }
-    const rows = [...new Set(detectedFileKeys.flatMap((fileKey) => scopedRowsByFile[fileKey] ?? []))];
+
+    const activeDetectedFileKeys =
+      detectedFileKeys.filter((fileKey) =>
+        currentFileKeySet.has(fileKey)
+      );
+
+    const rows = [
+      ...new Set(
+        activeDetectedFileKeys.flatMap(
+          (fileKey) =>
+            scopedRowsByFile[fileKey] ?? []
+        )
+      ),
+    ];
+
     setDetectedStudentRowIndexes((previous) => {
-      if (previous.length === rows.length &&
-        previous.every((rowIndex, index) => rowIndex === rows[index])) {
+      if (
+        previous.length === rows.length &&
+        previous.every(
+          (rowIndex, index) =>
+            rowIndex === rows[index]
+        )
+      ) {
         return previous;
       }
+
       return rows;
     });
-  }, [detectedFileKeys, scopedRowsByFile]);
+  }, [
+    detectedFileKeys,
+    currentFileKeySet,
+    scopedRowsByFile,
+  ]);
   const kkStudentRowIndexes = useMemo(
     () => [...new Set(currentKkFileKeys.flatMap((fileKey) => scopedRowsByFile[fileKey] ?? []))],
     [currentKkFileKeys, scopedRowsByFile]
@@ -567,24 +1075,69 @@ export default function Home() {
     students,
   ]);
   const primarySessionStudent = useMemo(() => {
-    if (selectedStudentRow !== null) {
-      const selected = students.find(
-        (student) =>
-          student.rowIndex === selectedStudentRow
-      );
+    if (files.length > 0) {
+      if (selectedStudentRow !== null) {
+        const selectedInSession =
+          sessionStudents.find(
+            (student) =>
+              student.rowIndex ===
+              selectedStudentRow
+          );
 
-      if (selected) {
-        return selected;
+        if (selectedInSession) {
+          return selectedInSession;
+        }
       }
+
+      return sessionStudents[0] ?? null;
     }
 
-    return sessionStudents[0] ?? null;
+    if (selectedStudentRow !== null) {
+      return (
+        students.find(
+          (student) =>
+            student.rowIndex ===
+            selectedStudentRow
+        ) ?? null
+      );
+    }
+
+    return null;
   }, [
+    files.length,
     selectedStudentRow,
-    students,
     sessionStudents,
+    students,
   ]);
-  const missingExtractionFileKeys = useMemo(() => currentFileKeys.filter((fileKey) => !fileExtractions[fileKey]), [currentFileKeys, fileExtractions]);
+  const failedFileKeySet =
+    useMemo(
+      () =>
+        new Set(
+          failedFileKeys
+        ),
+      [
+        failedFileKeys,
+      ]
+    );
+
+  const missingExtractionFileKeys =
+    useMemo(
+      () =>
+        currentFileKeys.filter(
+          (fileKey) =>
+            !fileExtractions[
+            fileKey
+            ] &&
+            !failedFileKeySet.has(
+              fileKey
+            )
+        ),
+      [
+        currentFileKeys,
+        fileExtractions,
+        failedFileKeySet,
+      ]
+    );
   const unresolvedFileKeys = useMemo(() => {
     return currentFileKeys.filter((fileKey) => {
       if (!fileExtractions[fileKey])
@@ -598,21 +1151,55 @@ export default function Home() {
   ]);
   const duplicateDocumentMsg = useMemo(() => {
     const duplicates: string[] = [];
+
     for (const student of sessionStudents) {
-      const kkCount = currentKkFileKeys.filter((fileKey) => (scopedRowsByFile[fileKey] ?? []).includes(student.rowIndex)).length;
-      const aktaCount = currentAktaFileKeys.filter((fileKey) => (scopedRowsByFile[fileKey] ?? []).includes(student.rowIndex)).length;
-      if (kkCount <= 1 && aktaCount <= 1)
+      const kkCount =
+        currentKkFileKeys.filter(
+          (fileKey) =>
+            (
+              scopedRowsByFile[fileKey] ?? []
+            ).includes(student.rowIndex)
+        ).length;
+
+      const aktaCount =
+        currentAktaFileKeys.filter(
+          (fileKey) =>
+            (
+              scopedRowsByFile[fileKey] ?? []
+            ).includes(student.rowIndex)
+        ).length;
+
+      if (
+        kkCount <= 1 &&
+        aktaCount <= 1
+      ) {
         continue;
+      }
+
       const types: string[] = [];
-      if (kkCount > 1)
+
+      if (kkCount > 1) {
         types.push("KK");
-      if (aktaCount > 1)
-        types.push("Akta Kelahiran");
-      duplicates.push(`${student.nama} (${types.join(" dan ")})`);
+      }
+
+      if (aktaCount > 1) {
+        types.push(
+          "Akta Kelahiran"
+        );
+      }
+
+      duplicates.push(
+        `${student.nama} (${types.join(" dan ")})`
+      );
     }
-    if (duplicates.length === 0)
+
+    if (duplicates.length === 0) {
       return "";
-    return `Terdapat dokumen duplikat untuk ${duplicates.join(", ")}. Hapus dokumen duplikat sebelum menyimpan data.`;
+    }
+
+    return `Terdapat dokumen duplikat untuk ${duplicates.join(
+      ", "
+    )}. Hapus dokumen duplikat sebelum menyimpan data.`;
   }, [
     sessionStudents,
     currentKkFileKeys,
@@ -635,14 +1222,17 @@ export default function Home() {
       return [];
     }
 
-    return currentFileKeys.filter((fileKey) =>
-      (rawRowsByFile[fileKey] ?? []).includes(
-        primarySessionStudent.rowIndex
-      )
+    return currentFileKeys.filter(
+      (fileKey) =>
+        (
+          scopedRowsByFile[fileKey] ?? []
+        ).includes(
+          primarySessionStudent.rowIndex
+        )
     );
   }, [
     currentFileKeys,
-    rawRowsByFile,
+    scopedRowsByFile,
     primarySessionStudent,
   ]);
   const primaryStudentExtractions = useMemo(() => {
@@ -666,9 +1256,9 @@ export default function Home() {
     }
 
     const activeRowIndex =
-      selectedStudentRow ??
-      primarySessionStudent?.rowIndex ??
-      null;
+      files.length > 0
+        ? primarySessionStudent?.rowIndex ?? null
+        : selectedStudentRow;
 
     if (
       activeRowIndex === null ||
@@ -684,62 +1274,124 @@ export default function Home() {
     primarySessionStudent,
   ]);
   useEffect(() => {
-    if (files.length === 0 || !primarySessionStudent) return;
-
-    const student = primarySessionStudent;
-
-    if (studentDetailBaseline?.rowIndex === student.rowIndex) {
+    if (
+      files.length === 0 ||
+      !primarySessionStudent
+    ) {
       return;
     }
 
-    const requestId = ++baselineRequestIdRef.current;
-    const studentId = extractStudentNameFromFilename(
-      `${student.nama}_KK.pdf`
+    const student =
+      primarySessionStudent;
+
+    if (
+      studentDetailBaseline?.rowIndex ===
+      student.rowIndex
+    ) {
+      setLoadingStudentDetail(
+        false
+      );
+
+      return;
+    }
+
+    const requestId =
+      ++baselineRequestIdRef.current;
+
+    const studentId =
+      extractStudentNameFromFilename(
+        `${student.nama}_KK.pdf`
+      );
+
+    const localItem =
+      historyRef.current.find(
+        (item) =>
+          item.id === studentId
+      );
+
+    setLoadingStudentDetail(
+      true
     );
 
-    const localItem = historyRef.current.find(
-      (item) => item.id === studentId
-    );
-
-    void getStudentDetail(student.rowIndex)
+    void getStudentDetail(
+      student.rowIndex
+    )
       .then((detail) => {
-        if (baselineRequestIdRef.current !== requestId) return;
+        if (
+          baselineRequestIdRef.current !==
+          requestId
+        ) {
+          return;
+        }
 
         setStudentDetailBaseline({
-          rowIndex: student.rowIndex,
-          kk: localItem?.kk ?? detail.kk,
-          akta: localItem?.akta ?? detail.akta,
-          modelUsedKk: localItem?.kk
-            ? localItem.modelUsedKk
-            : "",
-          modelUsedAkta: localItem?.akta
-            ? localItem.modelUsedAkta
-            : "",
+          rowIndex:
+            student.rowIndex,
+          kk:
+            localItem?.kk ??
+            detail.kk,
+          akta:
+            localItem?.akta ??
+            detail.akta,
+          modelUsedKk:
+            localItem?.kk
+              ? localItem.modelUsedKk
+              : "",
+          modelUsedAkta:
+            localItem?.akta
+              ? localItem.modelUsedAkta
+              : "",
         });
       })
       .catch((error) => {
-        if (baselineRequestIdRef.current !== requestId) return;
+        if (
+          baselineRequestIdRef.current !==
+          requestId
+        ) {
+          return;
+        }
 
         console.error(
           "[Upload Baseline Detail]",
           error
         );
 
-        if (!localItem) return;
+        if (!localItem) {
+          return;
+        }
 
         setStudentDetailBaseline({
-          rowIndex: student.rowIndex,
-          kk: localItem.kk,
-          akta: localItem.akta,
-          modelUsedKk: localItem.modelUsedKk,
-          modelUsedAkta: localItem.modelUsedAkta,
+          rowIndex:
+            student.rowIndex,
+          kk:
+            localItem.kk,
+          akta:
+            localItem.akta,
+          modelUsedKk:
+            localItem.modelUsedKk,
+          modelUsedAkta:
+            localItem.modelUsedAkta,
         });
+      })
+      .finally(() => {
+        if (
+          baselineRequestIdRef.current !==
+          requestId
+        ) {
+          return;
+        }
+
+        setLoadingStudentDetail(
+          false
+        );
       });
   }, [
     files.length,
     primarySessionStudent,
     studentDetailBaseline?.rowIndex,
   ]);
+
+
   const activeKk = useMemo(() => {
     if (files.length === 0) return resultKk;
 
@@ -818,8 +1470,20 @@ export default function Home() {
   const displayFiles = useMemo<DocumentDisplayFile[]>(() => {
     return files.flatMap((file): DocumentDisplayFile[] => {
       const fileKey = getDocumentFileKey(file);
-      const documentType = documentTypes[fileKey] || null;
-      const rowIndexes = scopedRowsByFile[fileKey] ?? [];
+      const extractedDocumentType =
+        documentTypes[fileKey];
+
+      const documentType =
+        extractedDocumentType ===
+          "unknown"
+          ? null
+          : extractedDocumentType ??
+          null;
+      const rowIndexes = [
+        ...new Set(
+          scopedRowsByFile[fileKey] ?? []
+        ),
+      ];
       if (!documentType || rowIndexes.length === 0) {
         const extraction = fileExtractions[fileKey];
         const extractedName = getExtractedDocumentName(
@@ -874,16 +1538,16 @@ export default function Home() {
       }
       return matchedStudents.map((student): DocumentDisplayFile => {
         const canonicalDocumentType =
-  documentType === "both"
-    ? fileExtractions[fileKey]?.akta
-      ? "akta"
-      : "kk"
-    : documentType;
+          documentType === "both"
+            ? fileExtractions[fileKey]?.akta
+              ? "akta"
+              : "kk"
+            : documentType;
 
-const displayName = createCanonicalFileName(
-  student.nama,
-  canonicalDocumentType
-);
+        const displayName = createCanonicalFileName(
+          student.nama,
+          canonicalDocumentType
+        );
         return {
           file,
           fileKey,
@@ -900,11 +1564,46 @@ const displayName = createCanonicalFileName(
       });
     });
   }, [
-  files,
-  documentTypes,
-  scopedRowsByFile,
-  students,
-  fileExtractions,
+    files,
+    documentTypes,
+    scopedRowsByFile,
+    students,
+    fileExtractions,
+  ]);
+
+  useEffect(() => {
+    const sharedKkRows =
+      displayFiles.filter(
+        (item) =>
+          item.documentType === "kk" &&
+          item.virtual
+      );
+
+    if (
+      sharedKkRows.length === 0
+    ) {
+      return;
+    }
+
+    console.log(
+      "[SHARED KK VIRTUAL]",
+      sharedKkRows.map(
+        (item) => ({
+          physical:
+            item.originalName,
+          display:
+            item.displayName,
+          fileKey:
+            item.fileKey,
+          outputKey:
+            item.outputKey,
+          studentRowIndex:
+            item.studentRowIndex,
+        })
+      )
+    );
+  }, [
+    displayFiles,
   ]);
   const pendingFiles = useMemo(() => {
     const processed = new Set(processedFileKeys);
@@ -913,7 +1612,52 @@ const displayName = createCanonicalFileName(
     files,
     processedFileKeys,
   ]);
-  const hasPendingFiles = pendingFiles.length > 0;
+  const hasPendingFiles =
+    pendingFiles.length > 0;
+
+  useEffect(() => {
+    /*
+     * Sinkronkan URL dengan siswa
+     * yang sedang aktif/highlight
+     * pada session upload.
+     */
+    if (files.length === 0) {
+      return;
+    }
+
+    if (primarySessionStudent) {
+      setStudentUrl(
+        primarySessionStudent.nik
+      );
+
+      return;
+    }
+
+    /*
+     * Selama dokumen masih diproses,
+     * jangan reset URL dulu.
+     */
+    if (
+      isPreprocessing ||
+      isExtracting ||
+      hasPendingFiles
+    ) {
+      return;
+    }
+
+    /*
+     * Proses selesai tetapi tidak ada
+     * siswa aktif, misalnya dokumen
+     * bukan KK/Akta.
+     */
+    clearStudentUrl();
+  }, [
+    files.length,
+    primarySessionStudent,
+    isPreprocessing,
+    isExtracting,
+    hasPendingFiles,
+  ]);
   const setTemporarySaveFeedback = (studentId: string, status: SaveFeedbackStatus) => {
     const currentTimer = saveFeedbackTimersRef.current[studentId];
     if (currentTimer) {
@@ -1017,12 +1761,32 @@ const displayName = createCanonicalFileName(
     selectedStudentRow,
   ]);
   useEffect(() => {
-    if (files.length === 0 ||
+    if (
+      files.length === 0 ||
       isExtracting ||
-      pendingFiles.length === 0) {
+      pendingFiles.length === 0
+    ) {
       return;
     }
-    void extract(pendingFiles);
+
+    console.log(
+      "[EXTRACT PENDING FILES]",
+      pendingFiles.map(
+        (file) => ({
+          name: file.name,
+          key:
+            getDocumentFileKey(
+              file
+            ),
+          size:
+            file.size,
+        })
+      )
+    );
+
+    void extract(
+      pendingFiles
+    );
   }, [
     files,
     pendingFiles,
@@ -1074,313 +1838,927 @@ const displayName = createCanonicalFileName(
       return next;
     });
   };
-  const handleUploadFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const pickedFiles = Array.from(event.target.files ?? []);
+  const handleUploadFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const pickedFiles =
+      Array.from(
+        event.target.files ?? []
+      );
+
     event.target.value = "";
-    if (pickedFiles.length === 0) return;
 
-    const selectedFiles = pickedFiles.filter((file) => !currentFileKeySet.has(getDocumentFileKey(file)));
-    if (selectedFiles.length === 0) return;
-
-    studentRequestIdRef.current += 1;
-    setSelectedHistoryId("");
-    setLoadingStudentDetail(false);
-
-    const selectedKeys = selectedFiles.map(getDocumentFileKey);
-    const filenameIssueEntries = selectedFiles.flatMap((file) => {
-      const fileKey = getDocumentFileKey(file);
-
-      const match = file.name.match(
-        /^(.*?)[\s_-]+(?:kk|kartu[\s_-]*keluarga|akta(?:[\s_-]*kelahiran)?)\.pdf$/i
-      );
-
-      if (!match) return [];
-
-      const detectedName = match[1]
-        .replace(/[_-]+/g, " ")
-        .trim();
-
-      if (!detectedName) return [];
-
-      const rowIndex = getNamedStudentRow(file, students);
-
-      if (rowIndex !== null) {
-        return [];
-      }
-
-      return [
-        [
-          fileKey,
-          {
-            status: "not-found" as const,
-            detectedName,
-          },
-        ] as const,
-      ];
-    });
-
-    setFilenameMatchIssues((previous) => ({
-      ...previous,
-      ...Object.fromEntries(filenameIssueEntries),
-    }));
-    const immediateNamedMatches = selectedFiles
-      .map((file) => ({
-        file,
-        fileKey: getDocumentFileKey(file),
-        rowIndex: getNamedStudentRow(file, students),
-      }))
-      .filter(
-        (
-          item
-        ): item is {
-          file: File;
-          fileKey: string;
-          rowIndex: number;
-        } => item.rowIndex !== null
-      );
-
-    const immediateNamedRows = [
-      ...new Set(
-        immediateNamedMatches.map(
-          (item) => item.rowIndex
-        )
-      ),
-    ];
-    const notFoundFileKeys = new Set(filenameIssueEntries.map(([fileKey]) => fileKey));
-    const allSelectedNotFound =
-      selectedFiles.length > 0 &&
-      notFoundFileKeys.size === selectedFiles.length;
-
-    // Filename jelas tetapi siswa tidak terdaftar:
-    // batch baru menggantikan session aktif, tanpa mewarisi siswa/detail sebelumnya.
-    if (allSelectedNotFound) {
-      invalidateAllAiTasks();
-      clearResolutionState();
-
-      files.forEach((file) => {
-        const fileKey = getDocumentFileKey(file);
-        invalidateAiTasksForFile(fileKey);
-        removeFileExtraction(file);
-      });
-
-      reset();
-
-      setFileStudentMatches({});
-      setFileStudentScopes({});
-      setPendingUploadFileKeys([]);
-      setDetectedFileKeys([]);
-      setDetectedStudentRowIndexes([]);
-
-      setSelectedHistoryId("");
-      setSelectedStudentRow(null);
-      setStudentDetailBaseline(null);
-      setLoadingStudentDetail(false);
-
-      setFilenameMatchIssues(Object.fromEntries(filenameIssueEntries));
-
-      replaceFiles(selectedFiles);
+    if (pickedFiles.length === 0) {
       return;
     }
 
-    if (files.length === 0) {
-      const baselineRowIndex = selectedStudentRow;
+    setIsPreprocessing(true);
 
-      if (baselineRowIndex !== null && (resultKk || resultAkta)) {
-        setStudentDetailBaseline({
-          rowIndex: baselineRowIndex,
-          kk: resultKk,
-          akta: resultAkta,
-          modelUsedKk,
-          modelUsedAkta,
-        });
-      }
+    try {
+      let selectedFiles: File[] = [];
 
-      invalidateAllAiTasks();
-      clearResolutionState();
-      reset();
+      for (const file of pickedFiles) {
+        try {
+          const pageCount =
+            await getPdfPageCount(file);
 
-      setFileStudentMatches(
-        Object.fromEntries(
-          immediateNamedMatches.map(({ fileKey, rowIndex }) => [
-            fileKey,
-            createFileStudentMatch([rowIndex], "exact"),
-          ])
-        )
-      );
-      setFileStudentScopes({});
-      setPendingUploadFileKeys([]);
-      setDetectedFileKeys(selectedKeys);
+          if (pageCount <= 1) {
+            selectedFiles.push(file);
+            continue;
+          }
 
-      if (immediateNamedRows.length > 0) {
-        setDetectedStudentRowIndexes(immediateNamedRows);
-        setSelectedStudentRow(immediateNamedRows[0]);
-      } else {
-        setDetectedStudentRowIndexes([]);
-      }
-
-      replaceFiles(selectedFiles);
-      return;
-    }
-
-    const namedRows = selectedFiles.map((file) => getNamedStudentRow(file, students));
-    const existingReady = currentFileKeys.every((fileKey) => Boolean(fileExtractions[fileKey]) && Boolean(fileResolutionComplete[fileKey]) && !aiMatchingFileKeys.includes(fileKey));
-    const canUseFilenameFastPath = existingReady && namedRows.every((rowIndex): rowIndex is number => rowIndex !== null);
-
-    if (canUseFilenameFastPath) {
-      const incomingRows = [...new Set(namedRows)];
-      const incomingSet = new Set(incomingRows);
-      const keptOldFiles: File[] = [];
-      const removedOldFiles: File[] = [];
-      const nextScopes = { ...fileStudentScopes };
-
-      files.forEach((file) => {
-        const fileKey =
-          getDocumentFileKey(file);
-
-        const rawRows =
-          rawRowsByFile[fileKey] ?? [];
-
-        if (rawRows.length === 0) {
-          keptOldFiles.push(file);
-          return;
-        }
-
-        const overlapRows =
-          rawRows.filter(
-            (rowIndex) =>
-              incomingSet.has(rowIndex)
+          console.log(
+            "[PDF PREPROCESS] mulai",
+            {
+              file: file.name,
+              pageCount,
+            }
           );
 
-        if (overlapRows.length > 0) {
-          keptOldFiles.push(file);
-          nextScopes[fileKey] =
-            overlapRows;
+          const parts =
+            await splitPdfByPage(file);
 
-          return;
+          console.log(
+            "[PDF PREPROCESS] split selesai",
+            parts.map(
+              (part) =>
+                part.file.name
+            )
+          );
+
+          const identityResults =
+            await Promise.all(
+              parts.map(
+                async (
+                  part
+                ): Promise<KkPageIdentityResult> => {
+                  try {
+                    const identity =
+                      await getKkPageIdentityWithTimeout(
+                        part.file
+                      );
+
+                    console.log(
+                      "[KK PAGE IDENTITY]",
+                      {
+                        page:
+                          part.pageNumber,
+                        documentType:
+                          identity.documentType,
+                        noKk:
+                          identity.noKk,
+                        kepala:
+                          identity
+                            .namaKepalaKeluarga,
+                      }
+                    );
+
+                    return {
+                      part,
+                      documentType:
+                        identity.documentType,
+                      noKk:
+                        identity.noKk,
+                      namaKepalaKeluarga:
+                        identity
+                          .namaKepalaKeluarga,
+                    };
+                  } catch (error) {
+                    console.error(
+                      "[KK PAGE IDENTITY] gagal",
+                      part.file.name,
+                      error
+                    );
+
+                    return {
+                      part,
+                      documentType:
+                        "unknown",
+                      noKk: "",
+                      namaKepalaKeluarga:
+                        "",
+                    };
+                  }
+                }
+              )
+            );
+
+          const kkIdentityResults =
+            identityResults.filter(
+              (item) =>
+                item.documentType === "kk"
+            );
+
+          const aktaIdentityResults =
+            identityResults.filter(
+              (item) =>
+                item.documentType === "akta"
+            );
+
+          const unknownIdentityResults =
+            identityResults.filter(
+              (item) =>
+                item.documentType === "unknown"
+            );
+
+          const hasConfirmedKk =
+            kkIdentityResults.length > 0;
+
+          /*
+           * Jika dalam PDF sudah ada minimal
+           * satu halaman KK yang terkonfirmasi,
+           * halaman unknown jangan langsung
+           * dibuang.
+           *
+           * Biarkan extractor utama memeriksa
+           * halaman tersebut sebagai logical
+           * file terpisah.
+           */
+          const fallbackKkCandidates =
+            hasConfirmedKk
+              ? unknownIdentityResults
+              : [];
+
+          const ignoredIdentityResults =
+            hasConfirmedKk
+              ? aktaIdentityResults
+              : [
+                ...aktaIdentityResults,
+                ...unknownIdentityResults,
+              ];
+
+          if (
+            ignoredIdentityResults.length > 0
+          ) {
+            console.log(
+              "[PDF PREPROCESS] halaman non-KK diabaikan",
+              ignoredIdentityResults.map(
+                (item) => ({
+                  page:
+                    item.part.pageNumber,
+                  documentType:
+                    item.documentType,
+                })
+              )
+            );
+          }
+
+          const validKkPageCount =
+            kkIdentityResults.filter(
+              (item) =>
+                isValidKkNumber(
+                  item.noKk
+                )
+            ).length;
+
+          const hasAnyKk =
+            kkIdentityResults.length > 0;
+
+          if (!hasAnyKk) {
+            console.warn(
+              "[PDF PREPROCESS] tidak ditemukan halaman KK, gunakan file asli",
+              {
+                file:
+                  file.name,
+                pages:
+                  identityResults.map(
+                    (item) => ({
+                      page:
+                        item.part.pageNumber,
+                      documentType:
+                        item.documentType,
+                      noKk:
+                        item.noKk,
+                    })
+                  ),
+              }
+            );
+
+            selectedFiles.push(
+              file
+            );
+
+            continue;
+          }
+
+          console.log(
+            "[PDF PREPROCESS] halaman KK terdeteksi",
+            {
+              file:
+                file.name,
+              totalPages:
+                identityResults.length,
+              kkPages:
+                kkIdentityResults.length,
+              validKkPages:
+                validKkPageCount,
+              ignoredPages:
+                ignoredIdentityResults.length,
+            }
+          );
+
+
+
+          const groups =
+            groupKkPages(
+              kkIdentityResults
+            );
+
+          console.log(
+            "[KK PAGE GROUPS]",
+            groups.map(
+              (group) => ({
+                group:
+                  group.groupIndex +
+                  1,
+                noKk:
+                  group.noKk ||
+                  "TIDAK TERBACA",
+                pages:
+                  group.pageNumbers,
+              })
+            )
+          );
+
+          const mergedFiles =
+            await Promise.all(
+              groups.map(
+                (group) =>
+                  mergePdfParts(
+                    file.name,
+                    group.parts,
+                    group.groupIndex + 1
+                  )
+              )
+            );
+
+          if (
+            mergedFiles.length === 0
+          ) {
+            throw new Error(
+              "Tidak ada hasil merge KK."
+            );
+          }
+
+          console.log(
+            "[KK MERGED]",
+            mergedFiles.map(
+              (mergedFile) => ({
+                name:
+                  mergedFile.name,
+                size:
+                  mergedFile.size,
+              })
+            )
+          );
+
+          selectedFiles.push(
+            ...mergedFiles
+          );
+
+          /*
+           * Halaman yang sempat terbaca
+           * "unknown" tetap diteruskan
+           * sebagai file terpisah jika PDF
+           * yang sama sudah memiliki
+           * halaman KK terkonfirmasi.
+           */
+          if (
+            fallbackKkCandidates.length > 0
+          ) {
+            selectedFiles.push(
+              ...fallbackKkCandidates.map(
+                (item) =>
+                  item.part.file
+              )
+            );
+
+            console.log(
+              "[PDF PREPROCESS] halaman unknown diteruskan ke extractor utama",
+              fallbackKkCandidates.map(
+                (item) => ({
+                  page:
+                    item.part.pageNumber,
+                  file:
+                    item.part.file.name,
+                })
+              )
+            );
+          }
+        } catch (error) {
+          console.error(
+            "[PDF PREPROCESS] gagal, fallback ke file asli",
+            file.name,
+            error
+          );
+
+          selectedFiles.push(
+            file
+          );
         }
-
-        removedOldFiles.push(file);
-        delete nextScopes[fileKey];
-      });
-
-      removedOldFiles.forEach((file) => {
-        const fileKey = getDocumentFileKey(file);
-        invalidateAiTasksForFile(fileKey);
-        removeFileExtraction(file);
-      });
-
-      if (removedOldFiles.length > 0) {
-        const removedKeys = new Set(removedOldFiles.map(getDocumentFileKey));
-        setFileStudentMatches((previous) => {
-          const next = { ...previous };
-          removedKeys.forEach((fileKey) => delete next[fileKey]);
-          return next;
-        });
       }
 
-      const finalFiles = [...keptOldFiles, ...selectedFiles];
+      selectedFiles =
+        dedupeDocumentFiles(
+          selectedFiles
+        );
 
-      console.log(
-        "[KEPT OLD FILES]",
-        keptOldFiles.map((file) => ({
-          name: file.name,
-          key: getDocumentFileKey(file),
-        }))
+      if (selectedFiles.length === 0) {
+        return;
+      }
+
+      studentRequestIdRef.current += 1;
+      setSelectedHistoryId("");
+      setLoadingStudentDetail(false);
+
+      const selectedKeys =
+        selectedFiles.map(
+          getDocumentFileKey
+        );
+
+      const filenameIssueEntries =
+        selectedFiles.flatMap((file) => {
+          const fileKey =
+            getDocumentFileKey(file);
+
+          const match =
+            file.name.match(
+              /^(.*?)[\s_-]+(?:kk|kartu[\s_-]*keluarga|akta(?:[\s_-]*kelahiran)?)\.pdf$/i
+            );
+
+          if (!match) {
+            return [];
+          }
+
+          const detectedName =
+            match[1]
+              .replace(/[_-]+/g, " ")
+              .trim();
+
+          if (!detectedName) {
+            return [];
+          }
+
+          const rowIndex =
+            getNamedStudentRow(
+              file,
+              students
+            );
+
+          if (rowIndex !== null) {
+            return [];
+          }
+
+          return [
+            [
+              fileKey,
+              {
+                status:
+                  "not-found" as const,
+                detectedName,
+              },
+            ] as const,
+          ];
+        });
+
+      setFilenameMatchIssues(
+        (previous) => ({
+          ...previous,
+          ...Object.fromEntries(
+            filenameIssueEntries
+          ),
+        })
       );
 
-      console.log(
-        "[REMOVED OLD FILES]",
-        removedOldFiles.map((file) => ({
-          name: file.name,
-          key: getDocumentFileKey(file),
-        }))
-      );
+      const immediateNamedMatches =
+        selectedFiles
+          .map((file) => ({
+            file,
+            fileKey:
+              getDocumentFileKey(file),
+            rowIndex:
+              getNamedStudentRow(
+                file,
+                students
+              ),
+          }))
+          .filter(
+            (
+              item
+            ): item is {
+              file: File;
+              fileKey: string;
+              rowIndex: number;
+            } =>
+              item.rowIndex !== null
+          );
 
-      console.log(
-        "[FINAL FILES]",
-        finalFiles.map((file) => ({
-          name: file.name,
-          key: getDocumentFileKey(file),
-        }))
-      );
+      const immediateNamedRows = [
+        ...new Set(
+          immediateNamedMatches.map(
+            (item) => item.rowIndex
+          )
+        ),
+      ];
 
-      console.log(
-        "[NEXT SCOPES]",
-        nextScopes
-      );
+      const notFoundFileKeys =
+        new Set(
+          filenameIssueEntries.map(
+            ([fileKey]) => fileKey
+          )
+        );
 
-      console.groupEnd();
+      const allSelectedNotFound =
+        selectedFiles.length > 0 &&
+        notFoundFileKeys.size ===
+        selectedFiles.length;
 
-      const finalKeys = finalFiles.map(getDocumentFileKey);
-      setFileStudentScopes(nextScopes);
-      setPendingUploadFileKeys(selectedKeys);
-      setDetectedFileKeys(finalKeys);
-      replaceFiles(finalFiles);
+      if (allSelectedNotFound) {
+        invalidateAllAiTasks();
+        clearResolutionState();
 
-      if (selectedStudentRow === null || !incomingSet.has(selectedStudentRow)) setSelectedStudentRow(incomingRows[0] ?? null);
-      return;
-    }
+        files.forEach((file) => {
+          const fileKey =
+            getDocumentFileKey(file);
 
-    if (immediateNamedMatches.length > 0) {
-      setFileStudentMatches((previous) => {
-        const next = { ...previous };
+          invalidateAiTasksForFile(
+            fileKey
+          );
+
+          removeFileExtraction(
+            file
+          );
+        });
+
+        reset();
+
+        setFileStudentMatches({});
+        setFileStudentScopes({});
+        setPendingUploadFileKeys([]);
+        setDetectedFileKeys([]);
+        setDetectedStudentRowIndexes([]);
+
+        setSelectedHistoryId("");
+        setSelectedStudentRow(null);
+        setStudentDetailBaseline(null);
+        setLoadingStudentDetail(false);
+
+        setFilenameMatchIssues(
+          Object.fromEntries(
+            filenameIssueEntries
+          )
+        );
+
+        replaceFiles(
+          selectedFiles
+        );
+
+        return;
+      }
+
+      if (files.length === 0) {
+        const baselineRowIndex =
+          selectedStudentRow;
+
+        if (
+          baselineRowIndex !== null &&
+          (
+            resultKk ||
+            resultAkta
+          )
+        ) {
+          setStudentDetailBaseline({
+            rowIndex:
+              baselineRowIndex,
+            kk:
+              resultKk,
+            akta:
+              resultAkta,
+            modelUsedKk,
+            modelUsedAkta,
+          });
+        }
+
+        invalidateAllAiTasks();
+        clearResolutionState();
+        reset();
+
+        setFileStudentMatches(
+          Object.fromEntries(
+            immediateNamedMatches.map(
+              ({
+                fileKey,
+                rowIndex,
+              }) => [
+                  fileKey,
+                  createFileStudentMatch(
+                    [rowIndex],
+                    "exact"
+                  ),
+                ]
+            )
+          )
+        );
+
+        setFileStudentScopes({});
+        setPendingUploadFileKeys([]);
+        setDetectedFileKeys(
+          selectedKeys
+        );
+
+        if (
+          immediateNamedRows.length >
+          0
+        ) {
+          setDetectedStudentRowIndexes(
+            immediateNamedRows
+          );
+
+          setSelectedStudentRow(
+            immediateNamedRows[0]
+          );
+        } else {
+          setDetectedStudentRowIndexes(
+            []
+          );
+        }
+
+        replaceFiles(
+          selectedFiles
+        );
+
+        return;
+      }
+
+      const namedRows =
+        selectedFiles.map(
+          (file) =>
+            getNamedStudentRow(
+              file,
+              students
+            )
+        );
+
+      const existingReady =
+        currentFileKeys.every(
+          (fileKey) =>
+            Boolean(
+              fileExtractions[
+              fileKey
+              ]
+            ) &&
+            Boolean(
+              fileResolutionComplete[
+              fileKey
+              ]
+            ) &&
+            !aiMatchingFileKeys.includes(
+              fileKey
+            )
+        );
+
+      const canUseFilenameFastPath =
+        existingReady &&
+        namedRows.every(
+          (
+            rowIndex
+          ): rowIndex is number =>
+            rowIndex !== null
+        );
+
+      if (canUseFilenameFastPath) {
+        const incomingRows = [
+          ...new Set(
+            namedRows
+          ),
+        ];
+
+        const incomingSet =
+          new Set(
+            incomingRows
+          );
+
+        const keptOldFiles:
+          File[] = [];
+
+        const removedOldFiles:
+          File[] = [];
+
+        const nextScopes = {
+          ...fileStudentScopes,
+        };
 
         immediateNamedMatches.forEach(
-          ({ fileKey, rowIndex }) => {
-            next[fileKey] = createFileStudentMatch(
-              [rowIndex],
-              "exact"
+          ({
+            fileKey,
+            rowIndex,
+          }) => {
+            nextScopes[fileKey] = [
+              rowIndex,
+            ];
+          }
+        );
+
+        files.forEach((file) => {
+          const fileKey =
+            getDocumentFileKey(
+              file
+            );
+
+          const rawRows =
+            rawRowsByFile[
+            fileKey
+            ] ?? [];
+
+          if (
+            rawRows.length === 0
+          ) {
+            keptOldFiles.push(
+              file
+            );
+
+            return;
+          }
+
+          const overlapRows =
+            rawRows.filter(
+              (rowIndex) =>
+                incomingSet.has(
+                  rowIndex
+                )
+            );
+
+          if (
+            overlapRows.length >
+            0
+          ) {
+            keptOldFiles.push(
+              file
+            );
+
+            nextScopes[
+              fileKey
+            ] = overlapRows;
+
+            return;
+          }
+
+          removedOldFiles.push(
+            file
+          );
+
+          delete nextScopes[
+            fileKey
+          ];
+        });
+
+        removedOldFiles.forEach(
+          (file) => {
+            const fileKey =
+              getDocumentFileKey(
+                file
+              );
+
+            invalidateAiTasksForFile(
+              fileKey
+            );
+
+            removeFileExtraction(
+              file
             );
           }
         );
 
-        return next;
-      });
+        const removedKeys =
+          new Set(
+            removedOldFiles.map(
+              getDocumentFileKey
+            )
+          );
 
-      setDetectedStudentRowIndexes(
-        immediateNamedRows
+        setFileStudentMatches(
+          (previous) => {
+            const next = {
+              ...previous,
+            };
+
+            removedKeys.forEach(
+              (fileKey) => {
+                delete next[
+                  fileKey
+                ];
+              }
+            );
+
+            immediateNamedMatches.forEach(
+              ({
+                fileKey,
+                rowIndex,
+              }) => {
+                next[
+                  fileKey
+                ] =
+                  createFileStudentMatch(
+                    [rowIndex],
+                    "exact"
+                  );
+              }
+            );
+
+            return next;
+          }
+        );
+
+        const finalFiles =
+          dedupeDocumentFiles([
+            ...keptOldFiles,
+            ...selectedFiles,
+          ]);
+
+        const finalKeys =
+          finalFiles.map(
+            getDocumentFileKey
+          );
+
+        setFileStudentScopes(
+          nextScopes
+        );
+
+        setPendingUploadFileKeys(
+          selectedKeys
+        );
+
+        setDetectedFileKeys(
+          finalKeys
+        );
+
+        setDetectedStudentRowIndexes(
+          incomingRows
+        );
+
+        setSelectedStudentRow(
+          incomingRows[0] ??
+          null
+        );
+
+        replaceFiles(
+          finalFiles
+        );
+
+        return;
+      }
+
+      if (
+        immediateNamedMatches.length >
+        0
+      ) {
+        setFileStudentMatches(
+          (previous) => {
+            const next = {
+              ...previous,
+            };
+
+            immediateNamedMatches.forEach(
+              ({
+                fileKey,
+                rowIndex,
+              }) => {
+                next[
+                  fileKey
+                ] =
+                  createFileStudentMatch(
+                    [rowIndex],
+                    "exact"
+                  );
+              }
+            );
+
+            return next;
+          }
+        );
+
+        setDetectedStudentRowIndexes(
+          immediateNamedRows
+        );
+
+        setSelectedStudentRow(
+          immediateNamedRows[0] ??
+          null
+        );
+      }
+
+      setPendingUploadFileKeys(
+        (previous) => [
+          ...new Set([
+            ...previous,
+            ...selectedKeys,
+          ]),
+        ]
       );
 
-      setSelectedStudentRow(
-        immediateNamedRows[0] ?? null
+      setDetectedFileKeys([
+        ...new Set([
+          ...currentFileKeys,
+          ...selectedKeys,
+        ]),
+      ]);
+
+      replaceFiles(
+        dedupeDocumentFiles([
+          ...files,
+          ...selectedFiles,
+        ])
       );
+    } finally {
+      setIsPreprocessing(false);
     }
 
-    setPendingUploadFileKeys((previous) => [...new Set([...previous, ...selectedKeys])]);
-    setDetectedFileKeys([...new Set([...currentFileKeys, ...selectedKeys])]);
-    replaceFiles([...files, ...selectedFiles]);
+
+
+
   };
 
   useEffect(() => {
     if (pendingUploadFileKeys.length === 0) return;
 
     const pendingSet = new Set(pendingUploadFileKeys);
-    const incomingFiles = files.filter((file) => pendingSet.has(getDocumentFileKey(file)));
+
+    const incomingFiles = files.filter((file) =>
+      pendingSet.has(getDocumentFileKey(file))
+    );
+
     if (incomingFiles.length !== pendingUploadFileKeys.length) return;
 
-    const incomingReady = pendingUploadFileKeys.every((fileKey) => {
-      const extractionReady =
-        Boolean(fileExtractions[fileKey]);
+    const incomingReady =
+      pendingUploadFileKeys.every(
+        (fileKey) => {
+          const isFailed =
+            failedFileKeySet.has(
+              fileKey
+            );
 
-      const resolutionReady =
-        Boolean(fileResolutionComplete[fileKey]);
+          /*
+           * File gagal dianggap selesai agar
+           * tidak menahan batch lainnya.
+           */
+          if (isFailed) {
+            return true;
+          }
 
-      const aiReady =
-        !aiMatchingFileKeys.includes(fileKey);
+          const extractionReady =
+            Boolean(
+              fileExtractions[
+              fileKey
+              ]
+            );
 
-      const rawRows =
-        rawRowsByFile[fileKey] ?? [];
+          /*
+           * Extraction sudah selesai tetapi
+           * tidak teridentifikasi sebagai
+           * KK maupun Akta.
+           *
+           * File seperti surat, SPTJM,
+           * formulir, dan dokumen lainnya
+           * tidak membutuhkan student
+           * resolution.
+           */
+          const documentType =
+            documentTypes[
+            fileKey
+            ];
 
-      const matcherReady =
-        rawRows.length > 0;
+          const supportedDocument =
+            documentType === "kk" ||
+            documentType === "akta" ||
+            documentType === "both";
 
-      return (
-        extractionReady &&
-        resolutionReady &&
-        aiReady &&
-        matcherReady
+          const unsupportedDocument =
+            extractionReady &&
+            !supportedDocument;
+
+          if (unsupportedDocument) {
+            return true;
+          }
+
+          const resolutionReady =
+            Boolean(
+              fileResolutionComplete[
+              fileKey
+              ]
+            );
+
+          const aiReady =
+            !aiMatchingFileKeys.includes(
+              fileKey
+            );
+
+          return (
+            extractionReady &&
+            resolutionReady &&
+            aiReady
+          );
+        }
       );
-    });
 
     if (!incomingReady) {
       return;
@@ -1395,7 +2773,50 @@ const displayName = createCanonicalFileName(
       ),
     ];
 
-    if (incomingRows.length === 0) {
+    const hasMatchedIncomingStudent =
+      incomingRows.length > 0;
+
+    if (!hasMatchedIncomingStudent) {
+      const oldFiles = files.filter(
+        (file) =>
+          !pendingSet.has(
+            getDocumentFileKey(file)
+          )
+      );
+
+      oldFiles.forEach((file) => {
+        const fileKey =
+          getDocumentFileKey(file);
+
+        invalidateAiTasksForFile(fileKey);
+        removeFileExtraction(file);
+      });
+
+      setFileStudentMatches((previous) => {
+        const next = { ...previous };
+
+        oldFiles.forEach((file) => {
+          delete next[
+            getDocumentFileKey(file)
+          ];
+        });
+
+        return next;
+      });
+
+      setFileStudentScopes({});
+      setPendingUploadFileKeys([]);
+      setDetectedFileKeys(
+        incomingFiles.map(getDocumentFileKey)
+      );
+      setDetectedStudentRowIndexes([]);
+
+      setSelectedHistoryId("");
+      setSelectedStudentRow(null);
+      setStudentDetailBaseline(null);
+      setLoadingStudentDetail(false);
+
+      replaceFiles(incomingFiles);
       return;
     }
 
@@ -1508,7 +2929,11 @@ const displayName = createCanonicalFileName(
       });
     }
 
-    const finalFiles = [...keptOldFiles, ...incomingFiles];
+    const finalFiles =
+      dedupeDocumentFiles([
+        ...keptOldFiles,
+        ...incomingFiles,
+      ]);
 
     console.log(
       "[KEPT OLD FILES]",
@@ -1593,31 +3018,208 @@ const displayName = createCanonicalFileName(
       };
     });
   };
-  const handleRemoveUploadFile = (fileKey: string) => {
-    const index = files.findIndex((file) => getDocumentFileKey(file) === fileKey);
-    if (index === -1)
-      return;
+  const handleRemoveUploadFile = (
+    fileKey: string,
+    studentRowIndex: number | null
+  ) => {
+    const index = files.findIndex(
+      (file) =>
+        getDocumentFileKey(file) === fileKey
+    );
+
+    if (index === -1) return;
+
     const file = files[index];
-    invalidateAiTasksForFile(fileKey);
-    removeFileExtraction(file);
-    handleRemoveFile(index);
-    setDetectedFileKeys((previous) => previous.filter((key) => key !== fileKey));
-    setPendingUploadFileKeys((previous) => previous.filter((key) => key !== fileKey));
+
+    const removingActiveStudent =
+      studentRowIndex !== null &&
+      selectedStudentRow ===
+      studentRowIndex;
+
+    const rawRows =
+      rawRowsByFile[fileKey] ?? [];
+
+    const currentScopedRows = [
+      ...new Set(
+        scopedRowsByFile[
+        fileKey
+        ] ?? []
+      ),
+    ];
+
+    const isSharedKk =
+      Boolean(fileExtractions[fileKey]?.kk) &&
+      rawRows.length > 1 &&
+      studentRowIndex !== null;
+
+    /*
+     * Shared KK:
+     * hapus hanya virtual student dari scope.
+     * Physical PDF + RAW extraction tetap dipertahankan
+     * selama masih ada student lain dalam scope.
+     */
+    if (isSharedKk) {
+      const remainingRows =
+        currentScopedRows.filter(
+          (rowIndex) =>
+            rowIndex !== studentRowIndex
+        );
+
+      if (remainingRows.length > 0) {
+        setFileStudentScopes((previous) => ({
+          ...previous,
+          [fileKey]: remainingRows,
+        }));
+
+        if (
+          selectedStudentRow ===
+          studentRowIndex
+        ) {
+          clearStudentUrl();
+
+          setSelectedStudentRow(
+            remainingRows[0] ?? null
+          );
+        }
+
+        return;
+      }
+
+      /*
+       * Kalau student terakhir dari Shared KK
+       * dihapus, baru physical file dihapus.
+       */
+    }
+
+    invalidateAiTasksForFile(
+      fileKey
+    );
+
+    removeFileExtraction(
+      file
+    );
+
+    /*
+     * Hapus physical file berdasarkan
+     * fileKey, bukan berdasarkan posisi
+     * index pada array.
+     *
+     * Ini memastikan file lain,
+     * termasuk Bukan KK/Akta,
+     * tetap dipertahankan.
+     */
+    const remainingFiles =
+      files.filter(
+        (item) =>
+          getDocumentFileKey(
+            item
+          ) !== fileKey
+      );
+
+    replaceFiles(
+      remainingFiles
+    );
+
+    setDetectedFileKeys((previous) =>
+      previous.filter(
+        (key) => key !== fileKey
+      )
+    );
+
+    setPendingUploadFileKeys((previous) =>
+      previous.filter(
+        (key) => key !== fileKey
+      )
+    );
+
     setFileStudentScopes((previous) => {
       const next = { ...previous };
       delete next[fileKey];
       return next;
     });
+
     setFileStudentMatches((previous) => {
       const next = { ...previous };
       delete next[fileKey];
       return next;
     });
-    if (files.length === 1) {
+
+    const remainingFileKeys =
+      remainingFiles.map(
+        getDocumentFileKey
+      );
+
+    const remainingSessionRows = [
+      ...new Set(
+        remainingFileKeys.flatMap(
+          (key) =>
+            scopedRowsByFile[key] ?? []
+        )
+      ),
+    ];
+
+    setDetectedStudentRowIndexes(
+      remainingSessionRows
+    );
+
+    if (
+      selectedStudentRow !== null &&
+      !remainingSessionRows.includes(
+        selectedStudentRow
+      )
+    ) {
+      const nextStudentRow =
+        remainingSessionRows[0] ??
+        null;
+
+      setSelectedStudentRow(
+        nextStudentRow
+      );
+
+      /*
+       * Siswa aktif sudah tidak menjadi
+       * bagian session.
+       *
+       * Detail lama tidak boleh tetap
+       * tampil.
+       */
+      setStudentDetailBaseline(
+        null
+      );
+
+      setSelectedHistoryId(
+        ""
+      );
+
+      setLoadingStudentDetail(
+        false
+      );
+
+      if (
+        nextStudentRow === null
+      ) {
+        /*
+         * Tidak ada murid lain.
+         * Contoh:
+         *
+         * Jauza_KK.pdf dihapus,
+         * tetapi file Bukan KK/Akta
+         * masih tersisa.
+         */
+        clearStudentUrl();
+      }
+    }
+
+    if (remainingFileKeys.length === 0) {
+      clearStudentUrl();
+
       setDetectedFileKeys([]);
       setDetectedStudentRowIndexes([]);
       setSelectedHistoryId("");
       setSelectedStudentRow(null);
+      setStudentDetailBaseline(null);
+      setLoadingStudentDetail(false);
+      setFilenameMatchIssues({});
       setFileStudentMatches({});
       setFileStudentScopes({});
       setPendingUploadFileKeys([]);
@@ -1640,9 +3242,16 @@ const displayName = createCanonicalFileName(
     setFileStudentScopes({});
     setPendingUploadFileKeys([]);
   };
-  const handleSelectStudent = async (student: StudentRecord) => {
-    if (isExtracting)
+  const handleSelectStudent = async (
+    student: StudentRecord
+  ) => {
+    if (isExtracting) {
       return;
+    }
+
+    setStudentUrl(
+      student.nik
+    );
     if (files.length > 0 &&
       sessionStudentRowIndexes.includes(student.rowIndex)) {
       setSelectedStudentRow(student.rowIndex);
@@ -1737,6 +3346,60 @@ const displayName = createCanonicalFileName(
       }
     }
   };
+  useEffect(() => {
+    if (
+      loadingStudents ||
+      students.length === 0
+    ) {
+      return;
+    }
+
+    const nikFromUrl =
+      getNikFromPathname(
+        window.location.pathname
+      );
+
+    if (!nikFromUrl) {
+      return;
+    }
+
+    if (
+      restoredNikRef.current ===
+      nikFromUrl
+    ) {
+      return;
+    }
+
+    const student =
+      students.find(
+        (item) =>
+          item.nik
+            .replace(/\D/g, "") ===
+          nikFromUrl
+      );
+
+    if (!student) {
+      console.warn(
+        "[STUDENT URL] NIK tidak ditemukan:",
+        nikFromUrl
+      );
+
+      restoredNikRef.current =
+        nikFromUrl;
+
+      return;
+    }
+
+    restoredNikRef.current =
+      nikFromUrl;
+
+    void handleSelectStudent(
+      student
+    );
+  }, [
+    loadingStudents,
+    students,
+  ]);
   const handleIgnoreFileStudent = (fileKey: string, taskKey: string) => {
     if (!currentFileKeySet.has(fileKey))
       return;
@@ -1910,9 +3573,26 @@ const displayName = createCanonicalFileName(
       targetStudents.length === 0) {
       return;
     }
-    const sourceStudents = files.length > 0
-      ? targetStudents.filter((student) => sessionStudentRowIndexes.includes(student.rowIndex))
-      : targetStudents;
+    const sourceStudents =
+      [
+        ...new Map(
+          (
+            files.length > 0
+              ? targetStudents.filter(
+                (student) =>
+                  sessionStudentRowIndexes.includes(
+                    student.rowIndex
+                  )
+              )
+              : targetStudents
+          ).map(
+            (student) => [
+              student.rowIndex,
+              student,
+            ]
+          )
+        ).values(),
+      ];
     if (sourceStudents.length === 0)
       return;
     const rawPayloads = sourceStudents
@@ -2009,10 +3689,57 @@ const displayName = createCanonicalFileName(
       });
     }
   };
+
+  const testPdfSplitter = async (
+    file: File
+  ) => {
+    try {
+      const pageCount =
+        await getPdfPageCount(file);
+
+      console.log(
+        "[PDF SPLITTER] PAGE COUNT",
+        {
+          file: file.name,
+          pageCount,
+        }
+      );
+
+      const parts =
+        await splitPdfByPage(file);
+
+      console.log(
+        "[PDF SPLITTER] PARTS",
+        parts.map((part) => ({
+          sourceName:
+            part.sourceName,
+          sourcePageCount:
+            part.sourcePageCount,
+          pageIndex:
+            part.pageIndex,
+          pageNumber:
+            part.pageNumber,
+          fileName:
+            part.file.name,
+          fileSize:
+            part.file.size,
+        }))
+      );
+
+      return parts;
+    } catch (error) {
+      console.error(
+        "[PDF SPLITTER]",
+        error
+      );
+
+      return [];
+    }
+  };
   return (<DashboardLayout>
     <DashboardContent>
       <section className="col-span-12 h-full lg:col-span-6">
-        <UploadSection files={files} displayFiles={displayFiles} fileStudentMatches={fileStudentMatches} manualTasks={manualTasksByFile} manualTaskResolutions={manualTaskResolutions} students={students} processedFileKeys={processedFileKeys} aiMatchingFileKeys={aiMatchingFileKeys} isExtracting={isExtracting} errorMsg={errorMsg} conflictMsg={sessionConflict} duplicateMsg={duplicateDocumentMsg} sessionReady={sessionReady} hasPendingFiles={hasPendingFiles} onFileChange={handleUploadFileChange} onRemoveFile={handleRemoveUploadFile} onResetSession={handleResetUploadSession} onResolveStudent={handleResolveFileStudent} onIgnoreStudent={handleIgnoreFileStudent} filenameMatchIssues={filenameMatchIssues} />
+        <UploadSection files={files} displayFiles={displayFiles} fileStudentMatches={fileStudentMatches} manualTasks={manualTasksByFile} manualTaskResolutions={manualTaskResolutions} students={students} processedFileKeys={processedFileKeys} aiMatchingFileKeys={aiMatchingFileKeys} isExtracting={isExtracting} errorMsg={errorMsg} conflictMsg={sessionConflict} duplicateMsg={duplicateDocumentMsg} sessionReady={sessionReady} hasPendingFiles={hasPendingFiles} onFileChange={handleUploadFileChange} onRemoveFile={handleRemoveUploadFile} onResetSession={handleResetUploadSession} onResolveStudent={handleResolveFileStudent} onIgnoreStudent={handleIgnoreFileStudent} filenameMatchIssues={filenameMatchIssues} failedFileKeys={failedFileKeys} isPreprocessing={isPreprocessing} />
       </section>
 
       <StudentPanel
@@ -2032,11 +3759,23 @@ const displayName = createCanonicalFileName(
         savingAll={savingAll}
       />
 
-      <AktaPanel data={activeAkta} modelUsed={activeModelUsedAkta} />
+      <AktaPanel
+        data={activeAkta}
+        modelUsed={activeModelUsedAkta}
+        isLoading={loadingStudentDetail}
+      />
 
-      <KkSummary data={activeKk} modelUsed={activeModelUsedKk} />
+      <KkSummary
+        data={activeKk}
+        modelUsed={activeModelUsedKk}
+        isLoading={loadingStudentDetail}
+      />
 
-      <KkMembers data={activeKk} studentName={activeStudentName} />
+      <KkMembers
+        data={activeKk}
+        studentName={activeStudentName}
+        isLoading={loadingStudentDetail}
+      />
 
       {(loadingStudentDetail || isAiMatching) && (<div className="pointer-events-none fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 shadow-sm">
         <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
