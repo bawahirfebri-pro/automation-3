@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { GoogleSpreadsheet } from "google-spreadsheet";
 import { JWT } from "google-auth-library";
 
-import { applyStudentCompleteness } from "@/lib/student-completeness";
+import { applyStudentCompleteness } from "@/lib/students/student-completeness";
 
 import type { StudentRecord } from "@/types/student";
 

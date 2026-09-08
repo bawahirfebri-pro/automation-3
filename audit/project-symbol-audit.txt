@@ -1,0 +1,2054 @@
+============================================================
+FILE: app\api\check-gemini\route.ts
+============================================================
+IMPORTS:
+  import { GoogleGenAI } from '@google/genai';
+  import { NextResponse } from 'next/server';
+
+EXPORTS:
+  GET
+
+FUNCTIONS:
+  GET
+
+CONSTS:
+  apiKey
+  ai
+  response
+  errorMessage
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\api\extract\akta\route.ts
+============================================================
+IMPORTS:
+  import { NextResponse } from "next/server";
+  import { extractAktaDocument } from "@/lib/extraction/akta-extraction";
+
+EXPORTS:
+  POST
+
+FUNCTIONS:
+  POST
+
+CONSTS:
+  MAX_FILE_SIZE
+  formData
+  file
+  result
+  message
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\api\extract\classify\route.ts
+============================================================
+IMPORTS:
+  import { NextResponse } from "next/server";
+  import { classifyDocument } from "@/lib/extraction/document-classifier";
+
+EXPORTS:
+  POST
+
+FUNCTIONS:
+  POST
+
+CONSTS:
+  MAX_FILE_SIZE
+  formData
+  file
+  result
+  message
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\api\extract\kk\route.ts
+============================================================
+IMPORTS:
+  import { NextResponse } from "next/server";
+  import { extractKkDocument } from "@/lib/extraction/kk-extraction";
+
+EXPORTS:
+  POST
+
+FUNCTIONS:
+  POST
+
+CONSTS:
+  MAX_FILE_SIZE
+  formData
+  file
+  result
+  message
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\api\kk-page-identity\route.ts
+============================================================
+IMPORTS:
+  import { NextResponse } from "next/server";
+  import {
+
+EXPORTS:
+  POST
+
+FUNCTIONS:
+  POST
+
+CONSTS:
+  formData
+  file
+  identity
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\api\students\match\route.ts
+============================================================
+IMPORTS:
+  import { NextResponse } from "next/server";
+  import {
+
+EXPORTS:
+  POST
+
+FUNCTIONS:
+  POST
+
+CONSTS:
+  MAX_CANDIDATES
+  body
+  detectedNames
+  candidates
+  result
+
+TYPES / INTERFACES:
+  AiStudentCandidate
+  MatchStudentRequest
+
+============================================================
+FILE: app\api\students\[rowIndex]\route.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\api\students\route.ts
+============================================================
+IMPORTS:
+  import { NextResponse } from "next/server";
+  import { GoogleSpreadsheet } from "google-spreadsheet";
+  import { JWT } from "google-auth-library";
+  import { applyStudentCompleteness } from "@/lib/students/student-completeness";
+  import type { StudentRecord } from "@/types/student";
+
+EXPORTS:
+  GET
+
+FUNCTIONS:
+  GET
+
+CONSTS:
+  serviceAccountEmail
+  privateKey
+  spreadsheetId
+  serviceAccountAuth
+  doc
+  sheet
+  rows
+  students
+  student
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\[nik]\page.tsx
+============================================================
+IMPORTS:
+
+EXPORTS:
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\layout.tsx
+============================================================
+IMPORTS:
+  import type { Metadata } from "next";
+  import { Geist, Geist_Mono } from "next/font/google";
+  import "./globals.css";
+
+EXPORTS:
+  metadata
+  RootLayout
+
+FUNCTIONS:
+  RootLayout
+
+CONSTS:
+  geistSans
+  geistMono
+  metadata
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: app\page.tsx
+============================================================
+IMPORTS:
+  import { useEffect, useMemo, useRef, useState } from "react";
+  import UploadSection from "@/components/upload-section";
+  import DashboardLayout from "@/components/dashboard/dashboard-layout";
+  import DashboardContent from "@/components/dashboard/dashboard-content";
+  import StudentPanel from "@/components/dashboard/student-panel";
+  import KkSummary from "@/components/dashboard/kk-summary";
+  import KkMembers from "@/components/dashboard/kk-members";
+  import AktaPanel from "@/components/dashboard/akta-panel";
+  import { extractStudentNameFromFilename } from "@/lib/documents/document-name";
+  import { createCanonicalFileName } from "@/lib/documents/canonical-file-name";
+  import { createFileStudentMatch, matchFileStudentLocally, type FileStudentMatch, } from "@/lib/students/file-student-matcher";
+  import { normalizeStudentName } from "@/lib/students/student-matcher";
+  import { getStudentDetail, matchStudentName } from "@/lib/api/students";
+  import { useDocumentExtraction, } from "@/hooks/use-document-extraction";
+  import { useDocumentFiles } from "@/hooks/use-document-files";
+  import { useExtractionHistory } from "@/hooks/use-extraction-history";
+  import { useStudents } from "@/hooks/use-students";
+  import { useSaveToSheet } from "@/hooks/use-save-to-sheet";
+  import type { StudentRecord } from "@/types/student";
+  import type { DocumentDisplayFile } from "@/types/document-file";
+  import type { KkResult } from "@/types/kk";
+  import type { AktaResult } from "@/types/akta";
+  import {
+  import {
+  import {
+  import { getDocumentFileKey } from "@/lib/documents/document-file-key";
+
+EXPORTS:
+  Home
+
+FUNCTIONS:
+  getNamedStudentRow
+  getExtractedDocumentName
+  toNameCase
+  getKkPageIdentityWithTimeout
+  isValidKkNumber
+  dedupeDocumentFiles
+  getNikFromPathname
+  setStudentUrl
+  clearStudentUrl
+  Home
+
+CONSTS:
+  match
+  key
+  exact
+  prefix
+  extraction
+  nama
+  seen
+  fileKey
+  match
+  normalizedNik
+  nextPath
+  studentRequestIdRef
+  baselineRequestIdRef
+  restoredNikRef
+  saveFeedbackTimersRef
+  aiTaskPayloadKeysRef
+  aiTaskRequestIdsRef
+  historyMap
+  historyRef
+  fileMatchPlans
+  currentFileKeys
+  currentFileKeySet
+  processedSet
+  next
+  extraction
+  detectedName
+  normalizedDetectedName
+  exactStudents
+  prefixStudents
+  registered
+  currentIssue
+  processedSet
+  candidates
+  fileKey
+  extraction
+  issue
+  extractedName
+  canonicalName
+  groups
+  group
+  duplicateKeys
+  keeper
+  duplicateFiles
+  fileKey
+  next
+  next
+  next
+  next
+  previousMatch
+  previousMatch
+  previousRows
+  requestKey
+  payloadKey
+  existingOutcome
+  requestId
+  matchedRowIndex
+  previousMatch
+  previousRows
+  baseRows
+  source
+  aiMatchingFileKeys
+  isAiMatching
+  manualTasksByFile
+  plan
+  tasks
+  requestKey
+  payloadKey
+  outcome
+  fileResolutionComplete
+  plan
+  currentMatch
+  trustedFilenameMatch
+  resolution
+  requestKey
+  resolution
+  payloadKey
+  outcome
+  rawRowsByFile
+  scopedRowsByFile
+  scopedRows
+  kkFiles
+  fileKey
+  fileKey
+  rawRows
+  scopedRows
+  rawStudents
+  scopedStudents
+  currentKkFileKeys
+  currentAktaFileKeys
+  sessionStudentRowIndexes
+  activeDetectedFileKeys
+  rows
+  kkStudentRowIndexes
+  sessionStudents
+  sessionConflict
+  kkRows
+  foreignAktaRows
+  names
+  primarySessionStudent
+  selectedInSession
+  failedFileKeySet
+  missingExtractionFileKeys
+  unresolvedFileKeys
+  duplicateDocumentMsg
+  duplicates
+  kkCount
+  aktaCount
+  types
+  unresolvedResolutionFileKeys
+  sessionReady
+  primaryStudentFileKeys
+  primaryStudentExtractions
+  sessionKkExtraction
+  sessionAktaExtraction
+  unregisteredExtraction
+  activeStudentBaseline
+  activeRowIndex
+  student
+  requestId
+  studentId
+  localItem
+  activeKk
+  activeAkta
+  activeModelUsedKk
+  activeModelUsedAkta
+  activeStudentName
+  displayFiles
+  fileKey
+  extractedDocumentType
+  documentType
+  rowIndexes
+  extraction
+  extractedName
+  canonicalDocumentType
+  displayName
+  matchedStudents
+  canonicalDocumentType
+  displayName
+  sharedKkRows
+  pendingFiles
+  processed
+  hasPendingFiles
+  setTemporarySaveFeedback
+  currentTimer
+  studentFileKeys
+  studentExtractions
+  kkExtraction
+  aktaExtraction
+  id
+  existingHistory
+  baseline
+  kk
+  akta
+  selectedStillValid
+  timers
+  clearResolutionState
+  invalidateAllAiTasks
+  invalidateAiTasksForFile
+  prefix
+  next
+  next
+  handleUploadFileChange
+  pickedFiles
+  pageCount
+  parts
+  identityResults
+  identity
+  kkIdentityResults
+  aktaIdentityResults
+  unknownIdentityResults
+  hasConfirmedKk
+  fallbackKkCandidates
+  ignoredIdentityResults
+  validKkPageCount
+  hasAnyKk
+  groups
+  mergedFiles
+  selectedKeys
+  filenameIssueEntries
+  fileKey
+  match
+  detectedName
+  rowIndex
+  immediateNamedMatches
+  immediateNamedRows
+  notFoundFileKeys
+  allSelectedNotFound
+  fileKey
+  baselineRowIndex
+  namedRows
+  existingReady
+  canUseFilenameFastPath
+  incomingRows
+  incomingSet
+  keptOldFiles
+  removedOldFiles
+  nextScopes
+  fileKey
+  rawRows
+  overlapRows
+  fileKey
+  removedKeys
+  next
+  finalFiles
+  finalKeys
+  next
+  pendingSet
+  incomingFiles
+  incomingReady
+  isFailed
+  extractionReady
+  documentType
+  supportedDocument
+  unsupportedDocument
+  resolutionReady
+  aiReady
+  incomingRows
+  hasMatchedIncomingStudent
+  oldFiles
+  fileKey
+  next
+  incomingRowSet
+  fileKey
+  oldFiles
+  keptOldFiles
+  removedOldFiles
+  nextScopes
+  fileKey
+  rawRows
+  overlapRows
+  fileKey
+  removedKeys
+  next
+  finalFiles
+  finalKeys
+  handleResolveFileStudent
+  task
+  validCandidate
+  studentExists
+  alreadyClaimed
+  existingRows
+  handleRemoveUploadFile
+  index
+  file
+  removingActiveStudent
+  rawRows
+  currentScopedRows
+  isSharedKk
+  remainingRows
+  remainingFiles
+  next
+  next
+  remainingFileKeys
+  remainingSessionRows
+  nextStudentRow
+  handleResetUploadSession
+  handleSelectStudent
+  requestId
+  normalizedStudentName
+  localItem
+  detail
+  nikFromUrl
+  student
+  handleIgnoreFileStudent
+  task
+  getSessionSavePayload
+  studentFileKeys
+  studentExtractions
+  kkItem
+  aktaItem
+  extractedData
+  aktaData
+  handleSaveStudent
+  currentStudent
+  normalizedStudentName
+  payload
+  result
+  localItem
+  extractedData
+  aktaData
+  result
+  handleSaveAllStudents
+  sourceStudents
+  rawPayloads
+  studentId
+  localItem
+  extractedData
+  aktaData
+  payloadMap
+  payloads
+  result
+  resultRows
+  student
+  studentId
+  student
+  studentId
+  student
+  studentId
+  testPdfSplitter
+  pageCount
+  parts
+
+TYPES / INTERFACES:
+  KkPageIdentityResult
+  SaveFeedbackStatus
+  AiTaskOutcomeStatus
+  AiTaskOutcome
+  ManualResolutionValue
+  ManualResolutionTask
+  StudentDetailBaseline
+
+============================================================
+FILE: components\dashboard\akta-panel.tsx
+============================================================
+IMPORTS:
+  import type { AktaResult } from "@/types/akta";
+  import { formatTeksTampilan } from "@/lib/formatting/text-formatter";
+
+EXPORTS:
+  AktaPanel
+
+FUNCTIONS:
+  AktaPanel
+
+CONSTS:
+  fields
+
+TYPES / INTERFACES:
+  AktaPanelProps
+
+============================================================
+FILE: components\dashboard\dashboard-content.tsx
+============================================================
+IMPORTS:
+  import type { ReactNode } from "react";
+
+EXPORTS:
+  DashboardContent
+
+FUNCTIONS:
+  DashboardContent
+
+CONSTS:
+
+TYPES / INTERFACES:
+  DashboardContentProps
+
+============================================================
+FILE: components\dashboard\dashboard-layout.tsx
+============================================================
+IMPORTS:
+  import type { ReactNode } from "react";
+
+EXPORTS:
+  DashboardLayout
+
+FUNCTIONS:
+  DashboardLayout
+
+CONSTS:
+
+TYPES / INTERFACES:
+  DashboardLayoutProps
+
+============================================================
+FILE: components\dashboard\history-panel.tsx
+============================================================
+IMPORTS:
+  import { useMemo, useState } from "react";
+  import type {
+
+EXPORTS:
+  HistoryPanel
+
+FUNCTIONS:
+  formatDate
+  formatStudentName
+  normalizeSearch
+  HistoryPanel
+
+CONSTS:
+  date
+  filteredHistory
+  keyword
+  handleClearAll
+  confirmed
+  isActive
+  isSaving
+  updatedAtTime
+  savedAtTime
+  persistedSuccess
+  itemSaveStatus
+
+TYPES / INTERFACES:
+  HistoryPanelProps
+
+============================================================
+FILE: components\dashboard\kk-members.tsx
+============================================================
+IMPORTS:
+  import type { KkResult } from "@/types/kk";
+  import { formatTeksTampilan } from "@/lib/formatting/text-formatter";
+
+EXPORTS:
+  KkMembers
+
+FUNCTIONS:
+  formatJenisKelamin
+  getJenisKelaminBadgeClass
+  KkMembers
+
+CONSTS:
+  normalizeName
+  normalized
+  gender
+  anggotaKeluarga
+  normalizedStudentName
+  normalizedMemberName
+  isTargetStudent
+  stickyBackground
+
+TYPES / INTERFACES:
+  KkMembersProps
+
+============================================================
+FILE: components\dashboard\kk-summary.tsx
+============================================================
+IMPORTS:
+  import type { KkResult } from "@/types/kk";
+  import { formatTeksTampilan } from "@/lib/formatting/text-formatter";
+
+EXPORTS:
+  KkSummary
+
+FUNCTIONS:
+  KkSummary
+
+CONSTS:
+  fields
+
+TYPES / INTERFACES:
+  KkSummaryProps
+
+============================================================
+FILE: components\dashboard\student-panel.tsx
+============================================================
+IMPORTS:
+  import { useEffect, useMemo, useRef, useState } from "react";
+  import type { ExtractionHistoryItem } from "@/types/extraction-history";
+  import type { StudentRecord } from "@/types/student";
+
+EXPORTS:
+  StudentPanel
+
+FUNCTIONS:
+  normalize
+  formatStudentName
+  getDocumentStatus
+  getStatusBadge
+  getDetectedActionStatus
+  getDetectedActionLabel
+  getDetectedActionClass
+  StudentPanel
+
+CONSTS:
+  lastUploadFilterResetKeyRef
+  listRef
+  studentRefs
+  previousDetectedKeyRef
+  lastAutoScrolledKeyRef
+  detectedRowIndexes
+  detectedSet
+  detectedStudents
+  detectedCount
+  hasMultipleDetected
+  hasSingleDetected
+  detectedKey
+  historyMap
+  firstDetectedStudent
+  firstDetectedStudent
+  kelasOptions
+  rombelOptions
+  source
+  filteredAllStudents
+  keyword
+  matchSearch
+  matchKelas
+  matchRombel
+  matchStatus
+  visibleStudents
+  rowIndex
+  targetVisible
+  frame
+  element
+  stats
+  total
+  kkComplete
+  aktaComplete
+  detectedStudentsReadyToSave
+  localItem
+  allStudentsReadyToSave
+  localItem
+  studentsReadyToSave
+  canSaveAll
+  handleKelasChange
+  handleResetFilter
+  handleTabChange
+  hasFilter
+  showingDetectedTab
+  isActive
+  isDetected
+  normalizedStudentId
+  localItem
+  kkStatus
+  aktaStatus
+  isSaving
+  canSave
+  feedback
+  actionStatus
+
+TYPES / INTERFACES:
+  StudentPanelProps
+  DocumentStatus
+  StatusFilter
+  StudentTab
+  DetectedActionStatus
+
+============================================================
+FILE: components\upload-section.tsx
+============================================================
+IMPORTS:
+  import {
+  import type { DocumentDisplayFile } from "@/types/document-file";
+  import type { StudentRecord } from "@/types/student";
+  import type { FileStudentMatch } from "@/lib/students/file-student-matcher";
+
+EXPORTS:
+  ManualResolutionCandidate
+  ManualResolutionTask
+  ManualResolutionValue
+  UploadSection
+
+FUNCTIONS:
+  UploadSection
+
+CONSTS:
+  fileInputRef
+  compactQueueMode
+  handlePickerChange
+  processedFiles
+  failedFiles
+  aiMatchingFiles
+  hasBlockingIssue
+  isBusy
+  sortedDisplayFiles
+  aRenamed
+  bRenamed
+  nameA
+  nameB
+  renamedFiles
+  canonicalStudents
+  canonicalPreview
+  firstOutputKeyByFile
+  result
+  item
+  unresolvedTasksByFile
+  getFileStatus
+  fileKey
+  fileMatch
+  isProcessed
+  isAiMatching
+  isFailed
+  unresolvedTasks
+  filenameIssue
+  isSupportedDocument
+  getMatchMethod
+  match
+  getTaskOptions
+  search
+  downloadFileFallback
+  url
+  anchor
+  handleSaveRenamedFile
+  pickerWindow
+  handle
+  writable
+  handleSaveAllRenamedFiles
+  pickerWindow
+  directoryHandle
+  displayFile
+  fileHandle
+  writable
+  closeStudentPicker
+  fileKey
+  status
+  matchMethod
+  showManualTasks
+  unresolvedTasks
+  claimedRows
+  pickerKey
+  isOpen
+  options
+  alreadyClaimed
+
+TYPES / INTERFACES:
+  ManualResolutionCandidate
+  ManualResolutionTask
+  ManualResolutionValue
+  UploadSectionProps
+  FileStatus
+  SaveFilePickerOptions
+  WritableFileHandle
+  DirectoryFileHandle
+  DirectoryHandle
+  FilePickerWindow
+
+============================================================
+FILE: hooks\use-document-extraction.ts
+============================================================
+IMPORTS:
+  import { useState } from "react";
+  import {
+  import type {
+  import type {
+  import {
+  import type {
+
+EXPORTS:
+  DataSource
+  useDocumentExtraction
+
+FUNCTIONS:
+  useDocumentExtraction
+
+CONSTS:
+  DEFAULT_MODEL_NAME
+  DEFAULT_ERROR_MESSAGE
+  rebuildAggregate
+  values
+  latestKk
+  latestAkta
+  reset
+  restore
+  extract
+  results
+  errors
+  attemptedKeys
+  failedKeys
+  extractedTypes
+  newExtractions
+  file
+  fileKey
+  message
+  data
+  next
+  next
+  next
+  removeFileExtraction
+  fileKey
+  next
+  next
+
+TYPES / INTERFACES:
+  DataSource
+  RestoreExtractionData
+  UseDocumentExtractionReturn
+
+============================================================
+FILE: hooks\use-document-files.ts
+============================================================
+IMPORTS:
+  import { useState } from "react";
+
+EXPORTS:
+  useDocumentFiles
+
+FUNCTIONS:
+  getFileKey
+  uniqueFiles
+  useDocumentFiles
+
+CONSTS:
+  seen
+  key
+  handleFileChange
+  selectedFiles
+  newFiles
+  handleRemoveFile
+  clearFiles
+  replaceFiles
+
+TYPES / INTERFACES:
+  UseDocumentFilesReturn
+
+============================================================
+FILE: hooks\use-extraction-history.ts
+============================================================
+IMPORTS:
+  import {
+  import {
+  import type { ExtractionHistoryItem } from "@/types/extraction-history";
+
+EXPORTS:
+  useExtractionHistory
+
+FUNCTIONS:
+  useExtractionHistory
+
+CONSTS:
+  storedHistory
+  addOrUpdateHistory
+  nextItems
+  markAsSaved
+  currentHistory
+  targetItem
+  nextItems
+  removeHistory
+  nextItems
+  clearHistory
+
+TYPES / INTERFACES:
+  UseExtractionHistoryReturn
+
+============================================================
+FILE: hooks\use-save-to-sheet.ts
+============================================================
+IMPORTS:
+  import { useCallback, useRef, useState } from "react";
+  import { saveToSheet } from "@/lib/api/student-save";
+  import type { AktaResult } from "@/types/akta";
+  import type { KkResult } from "@/types/kk";
+
+EXPORTS:
+  SaveData
+  SaveResult
+  SaveManyItemResult
+  SaveManyResult
+  useSaveToSheet
+
+FUNCTIONS:
+  useSaveToSheet
+
+CONSTS:
+  DEFAULT_SAVE_ERROR
+  SUCCESS_SAVE_MESSAGE
+  savingRef
+  executeSave
+  data
+  message
+  save
+  result
+  saveMany
+  validItems
+  uniqueItems
+  results
+  result
+  successCount
+  failedCount
+  success
+  clearSaveMessage
+
+TYPES / INTERFACES:
+  SaveData
+  SaveResult
+  SaveManyItemResult
+  SaveManyResult
+
+============================================================
+FILE: hooks\use-students.ts
+============================================================
+IMPORTS:
+  import { useCallback, useEffect, useState } from "react";
+  import type { StudentRecord } from "@/types/student";
+
+EXPORTS:
+  useStudents
+
+FUNCTIONS:
+  useStudents
+
+CONSTS:
+  refreshStudents
+  response
+  data
+
+TYPES / INTERFACES:
+  StudentsApiSuccess
+  StudentsApiError
+  StudentsApiResponse
+  UseStudentsReturn
+
+============================================================
+FILE: lib\api\kk-page-identity.ts
+============================================================
+IMPORTS:
+  import type {
+
+EXPORTS:
+  getKkPageIdentity
+
+FUNCTIONS:
+  getKkPageIdentity
+
+CONSTS:
+  formData
+  response
+  result
+  documentType
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\api\student-save.ts
+============================================================
+IMPORTS:
+  import type { AktaResult } from "@/types/akta";
+  import type { KkResult } from "@/types/kk";
+
+EXPORTS:
+  SaveToSheetParams
+  SaveToSheetResponse
+  saveToSheet
+
+FUNCTIONS:
+  saveToSheet
+
+CONSTS:
+  response
+  message
+
+TYPES / INTERFACES:
+  SaveToSheetParams
+  SaveToSheetSuccessResponse
+  SaveToSheetErrorResponse
+  SaveToSheetResponse
+
+============================================================
+FILE: lib\api\students.ts
+============================================================
+IMPORTS:
+  import type { StudentDetail } from "@/types/student-detail";
+
+EXPORTS:
+  StudentMatchCandidate
+  getStudentDetail
+  matchStudentName
+
+FUNCTIONS:
+  getStudentDetail
+  matchStudentName
+
+CONSTS:
+  response
+  data
+  response
+  data
+
+TYPES / INTERFACES:
+  StudentDetailSuccess
+  StudentDetailError
+  StudentDetailResponse
+  StudentMatchCandidate
+  StudentMatchSuccess
+  StudentMatchError
+  StudentMatchResponse
+
+============================================================
+FILE: lib\documents\canonical-file-name.ts
+============================================================
+IMPORTS:
+  import type {
+
+EXPORTS:
+  createCanonicalFileName
+
+FUNCTIONS:
+  sanitizeFileName
+  createCanonicalFileName
+
+CONSTS:
+  safeStudentName
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\documents\document-file-key.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  getDocumentFileKey
+
+FUNCTIONS:
+  getDocumentFileKey
+
+CONSTS:
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\documents\document-name.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  extractStudentNameFromFilename
+
+FUNCTIONS:
+  extractStudentNameFromFilename
+
+CONSTS:
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\documents\kk-page-grouper.ts
+============================================================
+IMPORTS:
+  import type {
+
+EXPORTS:
+  KkPageIdentityResult
+  KkPageGroup
+  groupKkPages
+
+FUNCTIONS:
+  normalizeKkNumber
+  groupKkPages
+
+CONSTS:
+  sorted
+  groups
+  noKk
+  previousGroup
+  canJoinPrevious
+
+TYPES / INTERFACES:
+  KkPageIdentityResult
+  KkPageGroup
+
+============================================================
+FILE: lib\documents\page-identity.ts
+============================================================
+IMPORTS:
+  import { GoogleGenAI } from "@google/genai";
+  import type {
+
+EXPORTS:
+  extractKkPageIdentity
+
+FUNCTIONS:
+  normalizeKkNumber
+  normalizeName
+  extractKkPageIdentity
+
+CONSTS:
+  MODELS_TO_TRY
+  PAGE_IDENTITY_PROMPT
+  apiKey
+  ai
+  arrayBuffer
+  buffer
+  base64Data
+  modelName
+  response
+  text
+  parsed
+  documentType
+  noKk
+  namaKepalaKeluarga
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\documents\pdf-splitter.ts
+============================================================
+IMPORTS:
+  import { PDFDocument } from "pdf-lib";
+
+EXPORTS:
+  PdfPageSplitResult
+  getPdfPageCount
+  splitPdfByPage
+  mergePdfParts
+
+FUNCTIONS:
+  createSplitFileName
+  getPdfPageCount
+  splitPdfByPage
+  mergePdfParts
+
+CONSTS:
+  baseName
+  bytes
+  pdf
+  bytes
+  sourcePdf
+  pageCount
+  results
+  outputPdf
+  outputBytes
+  outputBuffer
+  pageNumber
+  outputFile
+  outputPdf
+  sortedParts
+  bytes
+  sourcePdf
+  copiedPages
+  outputBytes
+  outputBuffer
+  baseName
+
+TYPES / INTERFACES:
+  PdfPageSplitResult
+
+============================================================
+FILE: lib\extraction\prompts\akta-prompt.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  PROMPT_EKSTRAKSI_AKTA
+
+FUNCTIONS:
+
+CONSTS:
+  PROMPT_EKSTRAKSI_AKTA
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\extraction\prompts\kk-prompt.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  PROMPT_EKSTRAKSI_KK
+
+FUNCTIONS:
+
+CONSTS:
+  PROMPT_EKSTRAKSI_KK
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\extraction\akta-extraction.ts
+============================================================
+IMPORTS:
+  import { GoogleGenAI } from "@google/genai";
+  import { PROMPT_EKSTRAKSI_AKTA } from "@/lib/extraction/prompts/akta-prompt";
+  import { AktaResultSchema } from "@/lib/validation/akta-schema";
+  import type { AktaResult } from "@/types/akta";
+
+EXPORTS:
+  extractAktaDocument
+
+FUNCTIONS:
+  extractAktaDocument
+
+CONSTS:
+  MODELS_TO_TRY
+  apiKey
+  ai
+  arrayBuffer
+  buffer
+  base64Data
+  response
+  validated
+  finalData
+  errorMessage
+  lastErrorMessage
+
+TYPES / INTERFACES:
+  ExtractionResult
+
+============================================================
+FILE: lib\extraction\document-classifier.ts
+============================================================
+IMPORTS:
+  import { GoogleGenAI } from "@google/genai";
+
+EXPORTS:
+  ClassifiedDocumentType
+  classifyDocument
+
+FUNCTIONS:
+  classifyDocument
+
+CONSTS:
+  CLASSIFIER_MODEL
+  CLASSIFICATION_PROMPT
+  apiKey
+  ai
+  arrayBuffer
+  base64Data
+  response
+  type
+
+TYPES / INTERFACES:
+  ClassifiedDocumentType
+  ClassificationResult
+
+============================================================
+FILE: lib\extraction\document-extraction.ts
+============================================================
+IMPORTS:
+  import type { AktaResult } from "@/types/akta";
+  import type { KkResult } from "@/types/kk";
+  import type { ExtractionResult } from "@/types/extraction";
+
+EXPORTS:
+  extractDocument
+
+FUNCTIONS:
+  getDocumentTypeFromFilename
+  requestFile
+  resolveDocumentType
+  extractDocument
+
+CONSTS:
+  API_ENDPOINTS
+  name
+  formData
+  message
+  knownType
+  result
+  type
+  type
+  result
+  result
+
+TYPES / INTERFACES:
+  DocumentType
+  ApiSuccessResponse
+  ApiErrorResponse
+  ClassificationData
+  ApiResponse
+
+============================================================
+FILE: lib\extraction\kk-extraction.ts
+============================================================
+IMPORTS:
+  import { GoogleGenAI } from "@google/genai";
+  import { PROMPT_EKSTRAKSI_KK } from "@/lib/extraction/prompts/kk-prompt";
+  import { parseDataFromNik } from "@/lib/students/nik-parser";
+  import { KkResultSchema } from "@/lib/validation/kk-schema";
+  import type { KkResult } from "@/types/kk";
+
+EXPORTS:
+  extractKkDocument
+
+FUNCTIONS:
+  extractKkDocument
+
+CONSTS:
+  MODELS_TO_TRY
+  apiKey
+  ai
+  arrayBuffer
+  buffer
+  base64Data
+  response
+  validated
+  anggotaKeluarga
+  nikData
+  finalData
+  errorMessage
+  lastErrorMessage
+
+TYPES / INTERFACES:
+  ExtractionResult
+
+============================================================
+FILE: lib\formatting\text-formatter.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  formatTeksResmi
+  formatTeksTampilan
+
+FUNCTIONS:
+  formatTeksResmi
+  formatTeksTampilan
+
+CONSTS:
+  lower
+  singkatan
+  regex
+  pengganti
+  romawi
+  regex
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\history\extraction-history.ts
+============================================================
+IMPORTS:
+  import type { ExtractionHistoryItem } from "@/types/extraction-history";
+
+EXPORTS:
+  getExtractionHistory
+  saveExtractionHistory
+  upsertExtractionHistory
+  removeExtractionHistory
+  clearExtractionHistory
+
+FUNCTIONS:
+  isHistoryExpired
+  getExtractionHistory
+  saveExtractionHistory
+  upsertExtractionHistory
+  removeExtractionHistory
+  clearExtractionHistory
+
+CONSTS:
+  STORAGE_KEY
+  HISTORY_TTL_MS
+  MAX_HISTORY_ITEMS
+  updatedAt
+  raw
+  parsed
+  validItems
+  currentItems
+  existingIndex
+  nextItems
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\sheets\sheet-mapper.ts
+============================================================
+IMPORTS:
+  import type { GoogleSpreadsheetRow } from "google-spreadsheet";
+  import type { AktaResult } from "@/types/akta";
+  import type { KkResult, KkAnggota } from "@/types/kk";
+  import { formatTeksResmi } from "@/lib/formatting/text-formatter";
+
+EXPORTS:
+  mapDataToRow
+
+FUNCTIONS:
+  normalizeName
+  formatGolonganDarah
+  formatJenisKelamin
+  setRowValue
+  findDataMurid
+  findDataAyah
+  findDataIbu
+  mapDataToRow
+
+CONSTS:
+  result
+  result
+  normalized
+  cleanValue
+  target
+  status
+  jk
+  status
+  jk
+  listAnggota
+  dataMurid
+  dataAyahKK
+  dataIbuKK
+  nomor
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: lib\students\file-student-matcher.ts
+============================================================
+IMPORTS:
+  import type {
+  import type { StudentRecord } from "@/types/student";
+  import {
+  import {
+
+EXPORTS:
+  FileStudentMatchSource
+  FileStudentMatch
+  StudentMatchCandidateRow
+  PendingAiCandidateTask
+  ManualCandidateTask
+  PendingAiFileMatch
+  FileResolutionState
+  LocalFileStudentMatchResult
+  createFileStudentMatch
+  createUnmatchedFileStudentMatch
+  matchFileStudentLocally
+
+FUNCTIONS:
+  createFileStudentMatch
+  createUnmatchedFileStudentMatch
+  createResolution
+  createStudentNameCandidate
+  getUniqueCandidates
+  getEditDistance
+  isSimpleNameTypo
+  debugKkMembers
+  getKkStudentCandidates
+  findExactRowsForCandidate
+  createCandidateRows
+  createAiTask
+  matchKkStudentsLocally
+  getAktaCandidates
+  matchAktaStudentLocally
+  matchFileStudentLocally
+
+CONSTS:
+  uniqueRowIndexes
+  seen
+  normalized
+  previous
+  old
+  detectedWords
+  studentWords
+  detectedWord
+  studentWord
+  distance
+  longestLength
+  maxWordEdits
+  candidates
+  normalized
+  rows
+  student
+  fuzzyCandidates
+  normalized
+  candidates
+  exactRows
+  fuzzyRows
+  claimedRows
+  aiTasks
+  manualTasks
+  normalized
+  exactRowsForCandidate
+  rowIndex
+  fuzzy
+  simpleTypoMatch
+  aiTask
+  rowIndexes
+  nama
+  candidates
+  candidate
+  exact
+  normalized
+  exactRows
+  fuzzy
+  aiTask
+
+TYPES / INTERFACES:
+  StudentNameCandidate
+  FileStudentMatchSource
+  FileStudentMatch
+  StudentMatchCandidateRow
+  PendingAiCandidateTask
+  ManualCandidateTask
+  PendingAiFileMatch
+  FileResolutionState
+  LocalFileStudentMatchResult
+
+============================================================
+FILE: lib\students\kk-student-eligibility.ts
+============================================================
+IMPORTS:
+  import type { KkAnggota } from "@/types/kk";
+
+EXPORTS:
+  KkStudentEligibility
+  calculateAge
+  getKkStudentEligibility
+  getEligibleKkStudents
+
+FUNCTIONS:
+  normalize
+  parseDate
+  calculateAge
+  getKkStudentEligibility
+  getEligibleKkStudents
+
+CONSTS:
+  MIN_STUDENT_AGE
+  MAX_STUDENT_AGE
+  ADULT_RELATION_KEYWORDS
+  CHILD_RELATION_KEYWORDS
+  text
+  numericMatch
+  day
+  month
+  year
+  date
+  isoMatch
+  year
+  month
+  day
+  date
+  parsed
+  birth
+  monthDiff
+  relation
+  age
+  adultRelation
+  explicitChild
+  nama
+
+TYPES / INTERFACES:
+  KkStudentEligibility
+
+============================================================
+FILE: lib\students\nik-parser.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  parseDataFromNik
+
+FUNCTIONS:
+  parseDataFromNik
+
+CONSTS:
+  nik
+  bulan
+  tahun
+  fullYear
+  date
+  isValidDate
+  tanggal_lahir
+
+TYPES / INTERFACES:
+  NikResult
+
+============================================================
+FILE: lib\students\student-ai-matcher.ts
+============================================================
+IMPORTS:
+  import { GoogleGenAI } from "@google/genai";
+
+EXPORTS:
+  AiStudentCandidate
+  AiStudentMatchParams
+  AiStudentMatchResult
+  matchStudentWithAi
+
+FUNCTIONS:
+  normalize
+  cleanDetectedNames
+  cleanCandidates
+  parseJsonResponse
+  createPrompt
+  matchStudentWithAi
+
+CONSTS:
+  MODEL
+  MAX_CANDIDATES
+  MIN_INPUT_SCORE
+  unique
+  nama
+  cleaned
+  previous
+  parsed
+  candidateText
+  apiKey
+  detectedNames
+  candidates
+  exactCandidates
+  ai
+  response
+  selectedCandidate
+
+TYPES / INTERFACES:
+  AiStudentCandidate
+  AiStudentMatchParams
+  AiStudentMatchResult
+  GeminiMatchResponse
+
+============================================================
+FILE: lib\students\student-completeness.ts
+============================================================
+IMPORTS:
+  import type { StudentRecord } from "@/types/student";
+
+EXPORTS:
+  isKkComplete
+  isAktaComplete
+  applyStudentCompleteness
+
+FUNCTIONS:
+  isKkComplete
+  isAktaComplete
+  applyStudentCompleteness
+
+CONSTS:
+
+TYPES / INTERFACES:
+  StudentCompletenessSource
+
+============================================================
+FILE: lib\students\student-matcher.ts
+============================================================
+IMPORTS:
+  import type { StudentRecord } from "@/types/student";
+
+EXPORTS:
+  StudentNameSource
+  StudentNameCandidate
+  StudentMatchResult
+  FuzzyStudentCandidate
+  normalizeStudentName
+  calculateStudentNameSimilarity
+  findExactStudentMatch
+  getFuzzyStudentCandidates
+  findFuzzyStudentMatch
+
+FUNCTIONS:
+  normalizeStudentName
+  levenshteinDistance
+  levenshteinSimilarity
+  getWords
+  wordSimilarity
+  tokenOverlapScore
+  containmentScore
+  hasStrongTokenRelation
+  calculateStudentNameSimilarity
+  findExactStudentMatch
+  getFuzzyStudentCandidates
+  findFuzzyStudentMatch
+
+CONSTS:
+  AUTO_FUZZY_THRESHOLD
+  AI_CANDIDATE_THRESHOLD
+  MIN_AUTO_SCORE_GAP
+  MIN_WORD_SIMILARITY
+  previous
+  current
+  cost
+  maxLength
+  wordsA
+  wordsB
+  used
+  score
+  wordsA
+  wordsB
+  normalizedA
+  normalizedB
+  shorter
+  longer
+  wordsA
+  wordsB
+  exactImportantToken
+  normalizedA
+  normalizedB
+  characterScore
+  wordsScore
+  overlapScore
+  containsScore
+  weightedScore
+  normalizedCandidate
+  matches
+  results
+  score
+  unique
+  previous
+  ranked
+  best
+  second
+
+TYPES / INTERFACES:
+  StudentNameSource
+  StudentNameCandidate
+  StudentMatchResult
+  FuzzyStudentCandidate
+
+============================================================
+FILE: lib\validation\akta-schema.ts
+============================================================
+IMPORTS:
+  import { z } from "zod";
+
+EXPORTS:
+  AktaResultSchema
+  AktaSchemaResult
+
+FUNCTIONS:
+
+CONSTS:
+  AktaResultSchema
+
+TYPES / INTERFACES:
+  AktaSchemaResult
+
+============================================================
+FILE: lib\validation\kk-schema.ts
+============================================================
+IMPORTS:
+  import { z } from "zod";
+
+EXPORTS:
+  KkAnggotaSchema
+  KkResultSchema
+  KkSchemaResult
+
+FUNCTIONS:
+
+CONSTS:
+  KkAnggotaSchema
+  KkResultSchema
+
+TYPES / INTERFACES:
+  KkSchemaResult
+
+============================================================
+FILE: lib\validation\kk-validation.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  validateExtractedKk
+
+FUNCTIONS:
+  validateExtractedKk
+
+CONSTS:
+  rawNoKk
+  listAnggota
+  rawNik
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: types\akta.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  AktaResult
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+  AktaResult
+
+============================================================
+FILE: types\document-file.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  DocumentType
+  DocumentDisplayFile
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+  DocumentType
+  DocumentDisplayFile
+
+============================================================
+FILE: types\extraction-history.ts
+============================================================
+IMPORTS:
+  import type { AktaResult } from "@/types/akta";
+  import type { KkResult } from "@/types/kk";
+
+EXPORTS:
+  HistorySaveStatus
+  ExtractionHistoryItem
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+  HistorySaveStatus
+  ExtractionHistoryItem
+
+============================================================
+FILE: types\extraction.ts
+============================================================
+IMPORTS:
+  import type { AktaResult } from "@/types/akta";
+  import type { KkResult } from "@/types/kk";
+
+EXPORTS:
+  ExtractedDocumentType
+  FileExtractionState
+  ExtractionResult
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+  ExtractedDocumentType
+  FileExtractionState
+  ExtractionResult
+
+============================================================
+FILE: types\kk.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  KkAnggota
+  KkResult
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+  KkAnggota
+  KkResult
+
+============================================================
+FILE: types\page-identity.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  PageDocumentType
+  PageIdentity
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+  PageDocumentType
+  PageIdentity
+
+============================================================
+FILE: types\student-detail.ts
+============================================================
+IMPORTS:
+  import type { AktaResult } from "@/types/akta";
+  import type { KkResult } from "@/types/kk";
+
+EXPORTS:
+  StudentDetail
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+  StudentDetail
+
+============================================================
+FILE: types\student.ts
+============================================================
+IMPORTS:
+
+EXPORTS:
+  StudentRecord
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+  StudentRecord
+
+============================================================
+FILE: next-env.d.ts
+============================================================
+IMPORTS:
+  import "./.next/dev/types/routes.d.ts";
+  import "./.next/dev/types/root-params.d.ts";
+
+EXPORTS:
+
+FUNCTIONS:
+
+CONSTS:
+
+TYPES / INTERFACES:
+
+============================================================
+FILE: next.config.ts
+============================================================
+IMPORTS:
+  import type { NextConfig } from "next";
+
+EXPORTS:
+
+FUNCTIONS:
+
+CONSTS:
+  nextConfig
+
+TYPES / INTERFACES:
+

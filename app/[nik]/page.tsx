@@ -1,3 +1,5 @@
-import Home from "../page";
+import { StudentDocumentExtractionFeature } from "@/features/student-document-extraction";
 
-export default Home;
+export default function LegacyStudentDocumentExtractionPage() {
+  return <StudentDocumentExtractionFeature />;
+}

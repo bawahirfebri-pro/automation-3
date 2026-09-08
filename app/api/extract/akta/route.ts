@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { extractAktaDocument } from "@/lib/extraction/akta-extraction";
+import { extractAktaDocument } from "@/features/student-document-extraction/lib/extraction/akta-extraction";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 

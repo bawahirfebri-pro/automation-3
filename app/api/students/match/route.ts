@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   matchStudentWithAi,
   type AiStudentCandidate,
-} from "@/lib/student-ai-matcher";
+} from "@/lib/students/student-ai-matcher";
 
 interface MatchStudentRequest {
   detectedNames: string[];

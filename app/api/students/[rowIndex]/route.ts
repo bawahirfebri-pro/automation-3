@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
-import { GoogleSpreadsheet } from "google-spreadsheet";
-import { JWT } from "google-auth-library";
+import {
+  getSheetValue,
+  getStudentSheetRow,
+} from "@/lib/sheets/student-sheet";
 
-import { mapDataToRow } from "@/lib/sheet-mapper";
-import { validateExtractedKk } from "@/lib/validator";
-import { extractStudentNameFromFilename } from "@/lib/document-name";
+import { mapRowToStudentDetail } from "@/lib/sheets/student-detail-mapper";
+
+import { mapDataToRow } from "@/lib/sheets/sheet-mapper";
+import { validateExtractedKk } from "@/lib/validation/kk-validation";
+import { extractStudentNameFromFilename } from "@/lib/documents/document-name";
 
 import type { AktaResult } from "@/types/akta";
 import type { KkResult } from "@/types/kk";
-import type { StudentDetail } from "@/types/student-detail";
 
 interface RouteContext {
   params: Promise<{ rowIndex: string }>;
@@ -20,8 +23,48 @@ interface UpdateStudentRequest {
   fileName: string;
 }
 
-function getValue(row: any, header: string): string {
-  return row.get(header)?.toString().trim() || "";
+async function resolveTargetRow(
+  rowIndex: string
+) {
+  const targetRowNumber = Number(rowIndex);
+
+  if (!Number.isInteger(targetRowNumber)) {
+    return {
+      row: null,
+      error: NextResponse.json(
+        {
+          success: false,
+          message:
+            "Nomor baris murid tidak valid.",
+        },
+        { status: 400 }
+      ),
+    };
+  }
+
+  const row =
+    await getStudentSheetRow(
+      targetRowNumber
+    );
+
+  if (!row) {
+    return {
+      row: null,
+      error: NextResponse.json(
+        {
+          success: false,
+          message:
+            "Data murid tidak ditemukan.",
+        },
+        { status: 404 }
+      ),
+    };
+  }
+
+  return {
+    row,
+    error: null,
+  };
 }
 
 function normalizeName(value: string): string {
@@ -48,97 +91,6 @@ function kkContainsStudent(
   );
 }
 
-async function getSheet() {
-  const serviceAccountEmail =
-    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-
-  const privateKey =
-    process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-
-  const spreadsheetId =
-    process.env.GOOGLE_SHEET_ID;
-
-  if (
-    !serviceAccountEmail ||
-    !privateKey ||
-    !spreadsheetId
-  ) {
-    throw new Error(
-      "Konfigurasi Google Sheet belum lengkap."
-    );
-  }
-
-  const serviceAccountAuth = new JWT({
-    email: serviceAccountEmail,
-    key: privateKey,
-    scopes: [
-      "https://www.googleapis.com/auth/spreadsheets",
-    ],
-  });
-
-  const doc = new GoogleSpreadsheet(
-    spreadsheetId,
-    serviceAccountAuth
-  );
-
-  await doc.loadInfo();
-
-  const sheet = doc.sheetsByIndex[0];
-
-  if (!sheet) {
-    throw new Error(
-      "Sheet tujuan tidak ditemukan."
-    );
-  }
-
-  return sheet;
-}
-
-async function getTargetRow(rowIndex: string) {
-  const targetRowNumber = Number(rowIndex);
-
-  if (!Number.isInteger(targetRowNumber)) {
-    return {
-      error: NextResponse.json(
-        {
-          success: false,
-          message:
-            "Nomor baris murid tidak valid.",
-        },
-        { status: 400 }
-      ),
-      row: null,
-    };
-  }
-
-  const sheet = await getSheet();
-  const rows = await sheet.getRows();
-
-  const row = rows.find(
-    (item) =>
-      item.rowNumber === targetRowNumber
-  );
-
-  if (!row) {
-    return {
-      error: NextResponse.json(
-        {
-          success: false,
-          message:
-            "Data murid tidak ditemukan.",
-        },
-        { status: 404 }
-      ),
-      row: null,
-    };
-  }
-
-  return {
-    error: null,
-    row,
-  };
-}
-
 export async function GET(
   request: Request,
   context: RouteContext
@@ -148,177 +100,18 @@ export async function GET(
       await context.params;
 
     const {
-      row: targetRow,
-      error,
-    } = await getTargetRow(rowIndex);
+  row: targetRow,
+  error,
+} = await resolveTargetRow(rowIndex);
 
     if (error || !targetRow) {
       return error;
     }
 
-    const noKk = getValue(
-      targetRow,
-      "No. Kartu Keluarga"
-    );
-
-    const noAkta = getValue(
-      targetRow,
-      "No. Akta Kelahiran"
-    );
-
-    const anggotaKeluarga: KkResult["anggota_keluarga"] =
-      [];
-
-    for (let i = 1; i <= 10; i += 1) {
-      const nama = getValue(
-        targetRow,
-        `Nama Anggota ${i}`
-      );
-
-      const nik = getValue(
-        targetRow,
-        `NIK Anggota ${i}`
-      );
-
-      if (!nama && !nik) {
-        continue;
-      }
-
-      anggotaKeluarga.push({
-        nama_lengkap: nama,
-        nik,
-        jenis_kelamin: getValue(
-          targetRow,
-          `Jenis Kelamin Anggota ${i}`
-        ),
-        status_hubungan_dalam_keluarga:
-          getValue(
-            targetRow,
-            `Status Anggota ${i}`
-          ),
-        tempat_lahir: getValue(
-          targetRow,
-          `Tempat Lahir Anggota ${i}`
-        ),
-        tanggal_lahir: getValue(
-          targetRow,
-          `Tanggal Lahir Anggota ${i}`
-        ),
-        agama: getValue(
-          targetRow,
-          `Agama Anggota ${i}`
-        ),
-        golongan_darah: getValue(
-          targetRow,
-          `Golongan Darah Anggota ${i}`
-        ),
-        pendidikan: getValue(
-          targetRow,
-          `Pendidikan Anggota ${i}`
-        ),
-        jenis_pekerjaan: getValue(
-          targetRow,
-          `Pekerjaan Anggota ${i}`
-        ),
-        nama_ayah: getValue(
-          targetRow,
-          `Nama Ayah dari Anggota ${i}`
-        ),
-        nama_ibu: getValue(
-          targetRow,
-          `Nama Ibu dari Anggota ${i}`
-        ),
-      });
-    }
-
-    const kk: KkResult | null = noKk
-      ? {
-          no_kk: noKk,
-          alamat: getValue(
-            targetRow,
-            "Alamat"
-          ),
-          rt: getValue(
-            targetRow,
-            "RT"
-          ),
-          rw: getValue(
-            targetRow,
-            "RW"
-          ),
-          kelurahan: getValue(
-            targetRow,
-            "Desa/Kelurahan"
-          ),
-          kecamatan: getValue(
-            targetRow,
-            "Kecamatan"
-          ),
-          kabupaten_kota: getValue(
-            targetRow,
-            "Kabupaten/Kota"
-          ),
-          provinsi: getValue(
-            targetRow,
-            "Provinsi"
-          ),
-          kode_pos: getValue(
-            targetRow,
-            "Kode Pos"
-          ),
-          tanggal_dikeluarkan: getValue(
-            targetRow,
-            "Tanggal Terbit KK"
-          ),
-          anggota_keluarga:
-            anggotaKeluarga,
-        }
-      : null;
-
-    const akta: AktaResult | null = noAkta
-      ? {
-          no_akta_kelahiran: noAkta,
-          nama_anak: getValue(
-            targetRow,
-            "Nama"
-          ),
-          anak_ke: getValue(
-            targetRow,
-            "Anak ke"
-          ),
-          tempat_lahir: getValue(
-            targetRow,
-            "Tempat Lahir"
-          ),
-          tanggal_lahir: getValue(
-            targetRow,
-            "Tanggal Lahir"
-          ),
-          nama_ayah:
-            getValue(
-              targetRow,
-              "Nama Ayah Kandung"
-            ) ||
-            getValue(
-              targetRow,
-              "Nama Ayah"
-            ),
-          nama_ibu:
-            getValue(
-              targetRow,
-              "Nama Ibu Kandung"
-            ) ||
-            getValue(
-              targetRow,
-              "Nama Ibu"
-            ),
-        }
-      : null;
-
-    const detail: StudentDetail = {
-      kk,
-      akta,
-    };
+  const detail =
+  mapRowToStudentDetail(
+    targetRow
+  );
 
     return NextResponse.json({
       success: true,
@@ -352,9 +145,9 @@ export async function PATCH(
       await context.params;
 
     const {
-      row: targetRow,
-      error,
-    } = await getTargetRow(rowIndex);
+  row: targetRow,
+  error,
+} = await resolveTargetRow(rowIndex);
 
     if (error || !targetRow) {
       return error;
@@ -413,10 +206,10 @@ export async function PATCH(
      */
 
     const targetStudentName =
-      getValue(
-        targetRow,
-        "Nama"
-      );
+  getSheetValue(
+    targetRow,
+    "Nama"
+  );
 
     if (!targetStudentName) {
       return NextResponse.json(
