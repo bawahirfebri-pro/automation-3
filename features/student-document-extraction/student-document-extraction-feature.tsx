@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DashboardLayout from "@/components/dashboard/dashboard-layout";
 import DashboardContent from "@/components/dashboard/dashboard-content";
 
@@ -11,20 +11,24 @@ import AktaPanel from "@/features/student-document-extraction/components/akta-pa
 
 import { extractStudentNameFromFilename } from "@/lib/documents/document-name";
 import { createCanonicalFileName } from "@/features/student-document-extraction/lib/documents/canonical-file-name";
-import { createFileStudentMatch, getNamedStudentRow, matchFileStudentLocally, type FileStudentMatch } from "@/lib/students/file-student-matcher";
+import { createFileStudentMatch } from "@/lib/students/file-student-matcher";
 import { normalizeStudentName } from "@/lib/students/student-matcher";
-import { getStudentDetail, matchStudentName } from "@/lib/api/students";
+import { getStudentDetail } from "@/lib/api/students";
 import { preprocessUploadFiles } from "@/features/student-document-extraction/lib/documents/preprocess-upload-files";
 import { useDocumentExtraction } from "@/features/student-document-extraction/hooks/use-document-extraction";
 import { useDocumentFiles } from "@/features/student-document-extraction/hooks/use-document-files";
 import { useExtractionHistory } from "@/features/student-document-extraction/hooks/use-extraction-history";
 import { useStudents } from "@/hooks/use-students";
 import { useStudentSave } from "@/features/student-document-extraction/hooks/use-student-save";
+import { useFileStudentResolution } from "@/features/student-document-extraction/hooks/use-file-student-resolution";
 import { useSaveFeedback } from "@/hooks/use-save-feedback";
 import { buildDocumentDisplayFiles } from "@/features/student-document-extraction/lib/document-display-files";
 import { getActiveDocumentView } from "@/features/student-document-extraction/lib/active-document-view";
 import { useSessionHistorySync } from "@/features/student-document-extraction/hooks/use-session-history-sync";
 import { usePendingDocumentExtraction } from "@/features/student-document-extraction/hooks/use-pending-document-extraction";
+import { useStudentUrlRestore } from "@/features/student-document-extraction/hooks/use-student-url-restore";
+import { analyzeUploadStudentFilenames } from "@/features/student-document-extraction/lib/analyze-upload-student-filenames";
+import { getUploadFastPathState } from "@/features/student-document-extraction/lib/get-upload-fast-path-state";
 import { useSessionUrlSync } from "@/features/student-document-extraction/hooks/use-session-url-sync";
 import { useSessionStudentSelection } from "@/features/student-document-extraction/hooks/use-session-student-selection";
 import { useStudentDetailBaseline } from "@/features/student-document-extraction/hooks/use-student-detail-baseline";
@@ -34,36 +38,24 @@ import { planUploadSessionMerge } from "@/features/student-document-extraction/l
 import { planDocumentRemoval } from "@/features/student-document-extraction/lib/document-removal-planner";
 import { buildSessionSavePayload } from "@/features/student-document-extraction/lib/session-save-payload";
 import { useSessionReadiness } from "@/features/student-document-extraction/hooks/use-session-readiness";
-import { getFileResolutionState } from "@/features/student-document-extraction/lib/file-resolution-state";
 import type { StudentRecord } from "@/types/student";
 import { dedupeDocumentFiles, toNameCase } from "@/lib/documents/document-helpers";
 import { getDocumentFileKey } from "@/lib/documents/document-file-key";
-import type { ManualResolutionValue } from "@/types/manual-resolution";
-import { clearStudentUrl, getNikFromPathname, setStudentUrl } from "@/lib/students/student-url";
-type AiTaskOutcomeStatus = "matched" | "rejected" | "failed";
-interface AiTaskOutcome {
-  status: AiTaskOutcomeStatus;
-  payloadKey: string;
-}
+import { clearStudentUrl, setStudentUrl } from "@/lib/students/student-url";
 
 export default function StudentDocumentExtractionFeature() {
   const [isPreprocessing, setIsPreprocessing] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [selectedStudentRow, setSelectedStudentRow] = useState<number | null>(null);
   const [savingStudentId, setSavingStudentId] = useState("");
-  const [fileStudentMatches, setFileStudentMatches] = useState<Record<string, FileStudentMatch>>({});
-  const [aiMatchingTaskKeys, setAiMatchingTaskKeys] = useState<string[]>([]);
-  const [aiTaskOutcomes, setAiTaskOutcomes] = useState<Record<string, AiTaskOutcome>>({});
-  const [manualTaskResolutions, setManualTaskResolutions] = useState<Record<string, ManualResolutionValue>>({});
+
   const [detectedFileKeys, setDetectedFileKeys] = useState<string[]>([]);
   const [detectedStudentRowIndexes, setDetectedStudentRowIndexes] = useState<number[]>([]);
   const [fileStudentScopes, setFileStudentScopes] = useState<Record<string, number[]>>({});
   const [pendingUploadFileKeys, setPendingUploadFileKeys] = useState<string[]>([]);
   const { saveFeedback, setTemporarySaveFeedback } = useSaveFeedback();
   const studentRequestIdRef = useRef(0);
-  const restoredNikRef = useRef("");
-  const aiTaskPayloadKeysRef = useRef<Record<string, string>>({});
-  const aiTaskRequestIdsRef = useRef<Record<string, number>>({});
+
   const { isExtracting, resultKk, resultAkta, modelUsedKk, modelUsedAkta, processedFileKeys, failedFileKeys, documentTypes, fileExtractions, errorMsg, extract, removeFileExtraction, restore, reset, } = useDocumentExtraction();
   const { history, addOrUpdateHistory, markAsSaved } = useExtractionHistory();
   const { students, loadingStudents, studentError, refreshStudents } = useStudents();
@@ -83,15 +75,28 @@ export default function StudentDocumentExtractionFeature() {
   useEffect(() => {
     historyRef.current = history;
   }, [history]);
-  const fileMatchPlans = useMemo(() => {
-    return Object.fromEntries(Object.entries(fileExtractions).map(([fileKey, extraction]) => [
-      fileKey,
-      matchFileStudentLocally(extraction, students),
-    ]));
-  }, [fileExtractions, students]);
+
 
   const currentFileKeys = useMemo(() => files.map((file) => getDocumentFileKey(file)), [files]);
   const currentFileKeySet = useMemo(() => new Set(currentFileKeys), [currentFileKeys]);
+  const {
+    fileStudentMatches,
+    setFileStudentMatches,
+    aiMatchingFileKeys,
+    isAiMatching,
+    manualTasksByFile,
+    manualTaskResolutions,
+    fileResolutionComplete,
+    clearResolutionState,
+    invalidateAllAiTasks,
+    invalidateAiTasksForFile,
+    resolveFileStudent,
+    ignoreFileStudent,
+  } = useFileStudentResolution({
+    currentFileKeys,
+    fileExtractions,
+    students,
+  });
   useEffect(() => {
     const processedSet = new Set(processedFileKeys);
     let active = true;
@@ -341,179 +346,12 @@ export default function StudentDocumentExtractionFeature() {
     filenameMatchIssues,
     replaceFiles,
     removeFileExtraction,
+    invalidateAiTasksForFile,
+    setFileStudentMatches,
   ]);
 
-  useEffect(() => {
-    let active = true;
 
-    void Promise.resolve().then(() => {
-      if (!active) return;
 
-      setFileStudentMatches((previous) => {
-        const next: Record<string, FileStudentMatch> = {};
-
-        currentFileKeys.forEach((fileKey) => {
-          const previousMatch = previous[fileKey];
-
-          if (previousMatch) {
-            next[fileKey] = previousMatch;
-          }
-        });
-
-        Object.entries(fileMatchPlans).forEach(([fileKey, plan]) => {
-          if (!currentFileKeySet.has(fileKey)) {
-            return;
-          }
-
-          const previousMatch = previous[fileKey];
-          const previousRows =
-            previousMatch?.rowIndexes ?? [];
-
-          if (
-            previousMatch?.source === "exact" ||
-            previousMatch?.source === "ai" ||
-            previousMatch?.source === "manual"
-          ) {
-            next[fileKey] =
-              createFileStudentMatch(
-                [
-                  ...plan.match.rowIndexes,
-                  ...previousRows,
-                ],
-                previousMatch.source
-              );
-
-            return;
-          }
-
-          next[fileKey] = plan.match;
-        });
-
-        return next;
-      });
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [
-    fileMatchPlans,
-    currentFileKeys,
-    currentFileKeySet,
-  ]);
-  useEffect(() => {
-    Object.entries(fileMatchPlans).forEach(([fileKey, plan]) => {
-      if (!currentFileKeySet.has(fileKey)) return;
-      plan.pendingAi?.tasks.forEach((task) => {
-        const requestKey = `${fileKey}::${task.taskKey}`;
-        const payloadKey = JSON.stringify({
-          detectedNames: task.detectedNames,
-          candidates: task.candidates,
-        });
-        const existingOutcome = aiTaskOutcomes[requestKey];
-        if (existingOutcome?.payloadKey === payloadKey &&
-          existingOutcome.status !== "failed") {
-          return;
-        }
-        if (aiTaskPayloadKeysRef.current[requestKey] === payloadKey)
-          return;
-        aiTaskPayloadKeysRef.current[requestKey] = payloadKey;
-        const requestId = (aiTaskRequestIdsRef.current[requestKey] || 0) + 1;
-        aiTaskRequestIdsRef.current[requestKey] = requestId;
-        setAiMatchingTaskKeys((previous) => previous.includes(requestKey)
-          ? previous
-          : [...previous, requestKey]);
-        void matchStudentName(task.detectedNames, task.candidates)
-          .then((result) => {
-            if (aiTaskRequestIdsRef.current[requestKey] !== requestId)
-              return;
-            if (!result.matched || result.rowIndex === null) {
-              setAiTaskOutcomes((previous) => ({
-                ...previous,
-                [requestKey]: {
-                  status: "rejected",
-                  payloadKey,
-                },
-              }));
-              return;
-            }
-            const matchedRowIndex = result.rowIndex;
-            if (!task.candidates.some((candidate) => candidate.rowIndex === matchedRowIndex) ||
-              !students.some((student) => student.rowIndex === matchedRowIndex)) {
-              setAiTaskOutcomes((previous) => ({
-                ...previous,
-                [requestKey]: {
-                  status: "failed",
-                  payloadKey,
-                },
-              }));
-              return;
-            }
-            let collision = false;
-            setFileStudentMatches((previous) => {
-              const previousMatch = previous[fileKey];
-              const previousRows = previousMatch?.rowIndexes ?? [];
-              const baseRows = fileMatchPlans[fileKey]?.match.rowIndexes ?? [];
-              if (previousRows.includes(matchedRowIndex)) {
-                collision = true;
-                return previous;
-              }
-              const source = previousMatch?.source === "manual"
-                ? "manual"
-                : "ai";
-              return {
-                ...previous,
-                [fileKey]: createFileStudentMatch([...baseRows, ...previousRows, matchedRowIndex], source),
-              };
-            });
-            setAiTaskOutcomes((previous) => ({
-              ...previous,
-              [requestKey]: {
-                status: collision ? "failed" : "matched",
-                payloadKey,
-              },
-            }));
-          })
-          .catch((error) => {
-            if (aiTaskRequestIdsRef.current[requestKey] !== requestId)
-              return;
-            console.error(`[AI KK Member Match] ${requestKey}`, error);
-            setAiTaskOutcomes((previous) => ({
-              ...previous,
-              [requestKey]: {
-                status: "failed",
-                payloadKey,
-              },
-            }));
-          })
-          .finally(() => {
-            if (aiTaskRequestIdsRef.current[requestKey] !== requestId)
-              return;
-            setAiMatchingTaskKeys((previous) => previous.filter((key) => key !== requestKey));
-          });
-      });
-    });
-  }, [
-    fileMatchPlans,
-    fileStudentMatches,
-    students,
-    aiTaskOutcomes,
-    currentFileKeySet,
-  ]);
-  const {
-    aiMatchingFileKeys,
-    isAiMatching,
-    manualTasksByFile,
-    fileResolutionComplete,
-  } = getFileResolutionState({
-    aiMatchingTaskKeys,
-    currentFileKeys,
-    fileMatchPlans,
-    aiTaskOutcomes,
-    fileStudentMatches,
-    fileExtractions,
-    manualTaskResolutions,
-  });
   const {
     rawRowsByFile,
     scopedRowsByFile,
@@ -677,52 +515,8 @@ export default function StudentDocumentExtractionFeature() {
   useSessionUrlSync({ filesLength: files.length, primarySessionStudent, isPreprocessing, isExtracting, hasPendingFiles });
   useSessionStudentSelection({ filesLength: files.length, sessionStudents, selectedStudentRow, setSelectedStudentRow });
 
-  const clearResolutionState = () => {
-    setAiTaskOutcomes({});
-    setManualTaskResolutions({});
-  };
-  const invalidateAllAiTasks = () => {
-    Object.keys(aiTaskRequestIdsRef.current).forEach((requestKey) => {
-      aiTaskRequestIdsRef.current[requestKey] += 1;
-    });
-    aiTaskPayloadKeysRef.current = {};
-    setAiMatchingTaskKeys([]);
-  };
-  function invalidateAiTasksForFile(fileKey: string) {
-    const prefix = `${fileKey}::`;
 
-    Object.keys(aiTaskRequestIdsRef.current).forEach((requestKey) => {
-      if (!requestKey.startsWith(prefix)) return;
-      aiTaskRequestIdsRef.current[requestKey] += 1;
-      delete aiTaskPayloadKeysRef.current[requestKey];
-    });
 
-    setAiMatchingTaskKeys((previous) =>
-      previous.filter(
-        (requestKey) => !requestKey.startsWith(prefix)
-      )
-    );
-
-    setAiTaskOutcomes((previous) => {
-      const next = { ...previous };
-
-      Object.keys(next).forEach((key) => {
-        if (key.startsWith(prefix)) delete next[key];
-      });
-
-      return next;
-    });
-
-    setManualTaskResolutions((previous) => {
-      const next = { ...previous };
-
-      Object.keys(next).forEach((key) => {
-        if (key.startsWith(prefix)) delete next[key];
-      });
-
-      return next;
-    });
-  }
   const handleUploadFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -750,107 +544,16 @@ export default function StudentDocumentExtractionFeature() {
       setSelectedHistoryId("");
       setLoadingStudentDetail(false);
 
-      const selectedKeys =
-        selectedFiles.map(
-          getDocumentFileKey
-        );
-
-      const filenameIssueEntries =
-        selectedFiles.flatMap((file) => {
-          const fileKey =
-            getDocumentFileKey(file);
-
-          const match =
-            file.name.match(
-              /^(.*?)[\s_-]+(?:kk|kartu[\s_-]*keluarga|akta(?:[\s_-]*kelahiran)?)\.pdf$/i
-            );
-
-          if (!match) {
-            return [];
-          }
-
-          const detectedName =
-            match[1]
-              .replace(/[_-]+/g, " ")
-              .trim();
-
-          if (!detectedName) {
-            return [];
-          }
-
-          const rowIndex =
-            getNamedStudentRow(
-              file,
-              students
-            );
-
-          if (rowIndex !== null) {
-            return [];
-          }
-
-          return [
-            [
-              fileKey,
-              {
-                status:
-                  "not-found" as const,
-                detectedName,
-              },
-            ] as const,
-          ];
-        });
-
-      setFilenameMatchIssues(
-        (previous) => ({
-          ...previous,
-          ...Object.fromEntries(
-            filenameIssueEntries
-          ),
-        })
+      const {
+        selectedKeys,
+        filenameIssueEntries,
+        immediateNamedMatches,
+        immediateNamedRows,
+        allSelectedNotFound,
+      } = analyzeUploadStudentFilenames(
+        selectedFiles,
+        students
       );
-
-      const immediateNamedMatches =
-        selectedFiles
-          .map((file) => ({
-            file,
-            fileKey:
-              getDocumentFileKey(file),
-            rowIndex:
-              getNamedStudentRow(
-                file,
-                students
-              ),
-          }))
-          .filter(
-            (
-              item
-            ): item is {
-              file: File;
-              fileKey: string;
-              rowIndex: number;
-            } =>
-              item.rowIndex !== null
-          );
-
-      const immediateNamedRows = [
-        ...new Set(
-          immediateNamedMatches.map(
-            (item) => item.rowIndex
-          )
-        ),
-      ];
-
-      const notFoundFileKeys =
-        new Set(
-          filenameIssueEntries.map(
-            ([fileKey]) => fileKey
-          )
-        );
-
-      const allSelectedNotFound =
-        selectedFiles.length > 0 &&
-        notFoundFileKeys.size ===
-        selectedFiles.length;
 
       if (allSelectedNotFound) {
         invalidateAllAiTasks();
@@ -968,49 +671,19 @@ export default function StudentDocumentExtractionFeature() {
         return;
       }
 
-      const namedRows =
-        selectedFiles.map(
-          (file) =>
-            getNamedStudentRow(
-              file,
-              students
-            )
-        );
-
-      const existingReady =
-        currentFileKeys.every(
-          (fileKey) =>
-            Boolean(
-              fileExtractions[
-              fileKey
-              ]
-            ) &&
-            Boolean(
-              fileResolutionComplete[
-              fileKey
-              ]
-            ) &&
-            !aiMatchingFileKeys.includes(
-              fileKey
-            )
-        );
-
-      const canUseFilenameFastPath =
-        existingReady &&
-        namedRows.every(
-          (
-            rowIndex
-          ): rowIndex is number =>
-            rowIndex !== null
-        );
+      const {
+        canUseFilenameFastPath,
+        incomingRows,
+      } = getUploadFastPathState({
+        selectedFiles,
+        students,
+        currentFileKeys,
+        fileExtractions,
+        fileResolutionComplete,
+        aiMatchingFileKeys,
+      });
 
       if (canUseFilenameFastPath) {
-        const incomingRows = [
-          ...new Set(
-            namedRows
-          ),
-        ];
-
         const initialScopes = {
           ...fileStudentScopes,
         };
@@ -1288,135 +961,135 @@ export default function StudentDocumentExtractionFeature() {
       ),
     ];
 
-  const hasMatchedIncomingStudent =
-  incomingRows.length > 0;
+    const hasMatchedIncomingStudent =
+      incomingRows.length > 0;
 
-let active = true;
+    let active = true;
 
-void Promise.resolve().then(() => {
-  if (!active) return;
+    void Promise.resolve().then(() => {
+      if (!active) return;
 
-  if (!hasMatchedIncomingStudent) {
-    const oldFiles = files.filter(
-      (file) =>
-        !pendingSet.has(
-          getDocumentFileKey(file)
-        )
-    );
+      if (!hasMatchedIncomingStudent) {
+        const oldFiles = files.filter(
+          (file) =>
+            !pendingSet.has(
+              getDocumentFileKey(file)
+            )
+        );
 
-    oldFiles.forEach((file) => {
-      const fileKey =
-        getDocumentFileKey(file);
+        oldFiles.forEach((file) => {
+          const fileKey =
+            getDocumentFileKey(file);
 
-      invalidateAiTasksForFile(fileKey);
-      removeFileExtraction(file);
-    });
+          invalidateAiTasksForFile(fileKey);
+          removeFileExtraction(file);
+        });
 
-    setFileStudentMatches((previous) => {
-      const next = { ...previous };
+        setFileStudentMatches((previous) => {
+          const next = { ...previous };
 
-      oldFiles.forEach((file) => {
-        delete next[
-          getDocumentFileKey(file)
-        ];
+          oldFiles.forEach((file) => {
+            delete next[
+              getDocumentFileKey(file)
+            ];
+          });
+
+          return next;
+        });
+
+        setFileStudentScopes({});
+        setPendingUploadFileKeys([]);
+        setDetectedFileKeys(
+          incomingFiles.map(getDocumentFileKey)
+        );
+        setDetectedStudentRowIndexes([]);
+
+        setSelectedHistoryId("");
+        setSelectedStudentRow(null);
+        resetStudentDetailBaseline();
+
+        replaceFiles(incomingFiles);
+        return;
+      }
+
+      const oldFiles = files.filter(
+        (file) =>
+          !pendingSet.has(
+            getDocumentFileKey(file)
+          )
+      );
+
+      const {
+        keptOldFiles,
+        removedOldFiles,
+        nextScopes,
+      } = planUploadSessionMerge({
+        existingFiles: oldFiles,
+        incomingRows,
+        rawRowsByFile,
+        initialScopes: fileStudentScopes,
       });
 
-      return next;
-    });
+      pendingUploadFileKeys.forEach(
+        (fileKey) => delete nextScopes[fileKey]
+      );
 
-    setFileStudentScopes({});
-    setPendingUploadFileKeys([]);
-    setDetectedFileKeys(
-      incomingFiles.map(getDocumentFileKey)
-    );
-    setDetectedStudentRowIndexes([]);
+      removedOldFiles.forEach((file) => {
+        const fileKey =
+          getDocumentFileKey(file);
 
-    setSelectedHistoryId("");
-    setSelectedStudentRow(null);
-    resetStudentDetailBaseline();
+        invalidateAiTasksForFile(fileKey);
+        removeFileExtraction(file);
+      });
 
-    replaceFiles(incomingFiles);
-    return;
-  }
+      if (removedOldFiles.length > 0) {
+        const removedKeys =
+          new Set(
+            removedOldFiles.map(
+              getDocumentFileKey
+            )
+          );
 
-  const oldFiles = files.filter(
-    (file) =>
-      !pendingSet.has(
-        getDocumentFileKey(file)
-      )
-  );
+        setFileStudentMatches((previous) => {
+          const next = { ...previous };
 
-  const {
-    keptOldFiles,
-    removedOldFiles,
-    nextScopes,
-  } = planUploadSessionMerge({
-    existingFiles: oldFiles,
-    incomingRows,
-    rawRowsByFile,
-    initialScopes: fileStudentScopes,
-  });
+          removedKeys.forEach(
+            (fileKey) => delete next[fileKey]
+          );
 
-  pendingUploadFileKeys.forEach(
-    (fileKey) => delete nextScopes[fileKey]
-  );
+          return next;
+        });
+      }
 
-  removedOldFiles.forEach((file) => {
-    const fileKey =
-      getDocumentFileKey(file);
+      const finalFiles =
+        dedupeDocumentFiles([
+          ...keptOldFiles,
+          ...incomingFiles,
+        ]);
 
-    invalidateAiTasksForFile(fileKey);
-    removeFileExtraction(file);
-  });
+      const finalKeys =
+        finalFiles.map(getDocumentFileKey);
 
-  if (removedOldFiles.length > 0) {
-    const removedKeys =
-      new Set(
-        removedOldFiles.map(
-          getDocumentFileKey
+      setFileStudentScopes(nextScopes);
+      setDetectedFileKeys(finalKeys);
+      setPendingUploadFileKeys([]);
+      replaceFiles(finalFiles);
+
+      if (
+        selectedStudentRow !== null &&
+        !incomingRows.includes(
+          selectedStudentRow
         )
-      );
-
-    setFileStudentMatches((previous) => {
-      const next = { ...previous };
-
-      removedKeys.forEach(
-        (fileKey) => delete next[fileKey]
-      );
-
-      return next;
+      ) {
+        setSelectedStudentRow(
+          incomingRows[0] ?? null
+        );
+      }
     });
-  }
 
-  const finalFiles =
-    dedupeDocumentFiles([
-      ...keptOldFiles,
-      ...incomingFiles,
-    ]);
-
-  const finalKeys =
-    finalFiles.map(getDocumentFileKey);
-
-  setFileStudentScopes(nextScopes);
-  setDetectedFileKeys(finalKeys);
-  setPendingUploadFileKeys([]);
-  replaceFiles(finalFiles);
-
-  if (
-    selectedStudentRow !== null &&
-    !incomingRows.includes(
-      selectedStudentRow
-    )
-  ) {
-    setSelectedStudentRow(
-      incomingRows[0] ?? null
-    );
-  }
-});
-
-return () => {
-  active = false;
-};
+    return () => {
+      active = false;
+    };
   }, [
     pendingUploadFileKeys,
     files,
@@ -1432,38 +1105,11 @@ return () => {
     replaceFiles,
     removeFileExtraction,
     resetStudentDetailBaseline,
+    invalidateAiTasksForFile,
+    setFileStudentMatches,
   ]);
 
-  const handleResolveFileStudent = (fileKey: string, taskKey: string, rowIndex: number) => {
-    if (!currentFileKeySet.has(fileKey))
-      return;
-    const task = manualTasksByFile[fileKey]?.find((item) => item.taskKey === taskKey);
-    if (!task)
-      return;
-    const validCandidate = task.candidates.some((candidate) => candidate.rowIndex === rowIndex);
-    if (!validCandidate)
-      return;
-    const studentExists = students.some((student) => student.rowIndex === rowIndex);
-    if (!studentExists)
-      return;
-    const alreadyClaimed = fileStudentMatches[fileKey]?.rowIndexes.includes(rowIndex);
-    if (alreadyClaimed)
-      return;
-    setManualTaskResolutions((previous) => ({
-      ...previous,
-      [`${fileKey}::${taskKey}`]: {
-        status: "matched",
-        rowIndex,
-      },
-    }));
-    setFileStudentMatches((previous) => {
-      const existingRows = previous[fileKey]?.rowIndexes ?? [];
-      return {
-        ...previous,
-        [fileKey]: createFileStudentMatch([...existingRows, rowIndex], "manual"),
-      };
-    });
-  };
+  const handleResolveFileStudent = resolveFileStudent;
   const handleRemoveUploadFile = (
     fileKey: string,
     studentRowIndex: number | null
@@ -1632,7 +1278,7 @@ return () => {
       setFileStudentMatches({});
       setFileStudentScopes({});
       setPendingUploadFileKeys([]);
-      setAiMatchingTaskKeys([]);
+      invalidateAllAiTasks();
       clearResolutionState();
     }
   };
@@ -1651,7 +1297,7 @@ return () => {
     setFileStudentScopes({});
     setPendingUploadFileKeys([]);
   };
-  const handleSelectStudent = async (
+  const handleSelectStudent = useCallback(async (
     student: StudentRecord
   ) => {
     if (isExtracting) {
@@ -1679,7 +1325,9 @@ return () => {
     setLoadingStudentDetail(false);
     setFileStudentMatches({});
     setFileStudentScopes({});
+
     setPendingUploadFileKeys([]);
+
     const normalizedStudentName = extractStudentNameFromFilename(`${student.nama}_KK.pdf`);
     setSelectedHistoryId(normalizedStudentName);
     const localItem = historyMap.get(normalizedStudentName);
@@ -1754,81 +1402,28 @@ return () => {
         setLoadingStudentDetail(false);
       }
     }
-  };
-  const handleSelectStudentRef =
-  useRef(handleSelectStudent);
+  }, [
+    isExtracting,
+    files.length,
+    sessionStudentRowIndexes,
+    invalidateAllAiTasks,
+    clearResolutionState,
+    clearFiles,
+    reset,
+    setLoadingStudentDetail,
+    setFileStudentMatches,
+    historyMap,
+    setStudentDetailBaseline,
+    restore,
+  ]);
 
-handleSelectStudentRef.current =
-  handleSelectStudent;
-  useEffect(() => {
-    if (
-      loadingStudents ||
-      students.length === 0
-    ) {
-      return;
-    }
+  useStudentUrlRestore({
+    loadingStudents,
+    students,
+    onSelectStudent: handleSelectStudent,
+  });
 
-    const nikFromUrl =
-      getNikFromPathname(
-        window.location.pathname
-      );
-
-    if (!nikFromUrl) {
-      return;
-    }
-
-    if (
-      restoredNikRef.current ===
-      nikFromUrl
-    ) {
-      return;
-    }
-
-    const student =
-      students.find(
-        (item) =>
-          item.nik
-            .replace(/\D/g, "") ===
-          nikFromUrl
-      );
-
-    if (!student) {
-      console.warn(
-        "[STUDENT URL] NIK tidak ditemukan:",
-        nikFromUrl
-      );
-
-      restoredNikRef.current =
-        nikFromUrl;
-
-      return;
-    }
-
-    restoredNikRef.current =
-  nikFromUrl;
-
-void Promise.resolve().then(() =>
-  handleSelectStudentRef.current(student)
-);
-}, [
-  loadingStudents,
-  students,
-]);
-  const handleIgnoreFileStudent = (fileKey: string, taskKey: string) => {
-    if (!currentFileKeySet.has(fileKey))
-      return;
-    const task = manualTasksByFile[fileKey]?.find((item) => item.taskKey === taskKey);
-    if (!task)
-      return;
-    setManualTaskResolutions((previous) => ({
-      ...previous,
-      [`${fileKey}::${taskKey}`]: {
-        status: "not-enrolled",
-        rowIndex: null,
-      },
-    }));
-  };
-
+  const handleIgnoreFileStudent = ignoreFileStudent;
 
   const handleSaveStudent = async (student: StudentRecord) => {
     if (savingStudentId || savingAll || sessionConflict || duplicateDocumentMsg)
