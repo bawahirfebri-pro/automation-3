@@ -14,11 +14,7 @@ function isAktaComplete(data: StudentCompletenessSource): boolean {
 }
 
 export function applyStudentCompleteness(
-  student: Omit<StudentRecord, "kkComplete" | "aktaComplete">
+  student: Omit<StudentRecord, "kkComplete" | "aktaComplete">,
 ): StudentRecord {
-  return {
-    ...student,
-    kkComplete: isKkComplete(student),
-    aktaComplete: isAktaComplete(student),
-  };
+  return { ...student, kkComplete: isKkComplete(student), aktaComplete: isAktaComplete(student) };
 }

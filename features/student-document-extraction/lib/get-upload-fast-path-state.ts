@@ -1,4 +1,5 @@
 import { getNamedStudentRow } from "@/lib/students/file-student-matcher";
+
 import type { StudentRecord } from "@/types/student";
 
 interface Params {
@@ -18,50 +19,20 @@ export function getUploadFastPathState({
   fileResolutionComplete,
   aiMatchingFileKeys,
 }: Params) {
-  const namedRows =
-    selectedFiles.map((file) =>
-      getNamedStudentRow(
-        file,
-        students
-      )
-    );
+  const namedRows = selectedFiles.map((file) => getNamedStudentRow(file, students));
 
-  const existingReady =
-    currentFileKeys.every(
-      (fileKey) =>
-        Boolean(
-          fileExtractions[fileKey]
-        ) &&
-        Boolean(
-          fileResolutionComplete[
-            fileKey
-          ]
-        ) &&
-        !aiMatchingFileKeys.includes(
-          fileKey
-        )
-    );
+  const existingReady = currentFileKeys.every(
+    (fileKey) =>
+      Boolean(fileExtractions[fileKey]) &&
+      Boolean(fileResolutionComplete[fileKey]) &&
+      !aiMatchingFileKeys.includes(fileKey),
+  );
 
-  const resolvedRows =
-    namedRows.filter(
-      (
-        rowIndex
-      ): rowIndex is number =>
-        rowIndex !== null
-    );
+  const resolvedRows = namedRows.filter((rowIndex): rowIndex is number => rowIndex !== null);
 
-  const canUseFilenameFastPath =
-    existingReady &&
-    resolvedRows.length ===
-      namedRows.length;
+  const canUseFilenameFastPath = existingReady && resolvedRows.length === namedRows.length;
 
-  const incomingRows =
-    canUseFilenameFastPath
-      ? [...new Set(resolvedRows)]
-      : [];
+  const incomingRows = canUseFilenameFastPath ? [...new Set(resolvedRows)] : [];
 
-  return {
-    canUseFilenameFastPath,
-    incomingRows,
-  };
+  return { canUseFilenameFastPath, incomingRows };
 }

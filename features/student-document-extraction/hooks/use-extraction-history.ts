@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useState,
-} from "react";
+import { useCallback, useState } from "react";
 
 import {
   clearExtractionHistory,
@@ -16,92 +13,45 @@ import type { ExtractionHistoryItem } from "@/types/extraction-history";
 
 interface UseExtractionHistoryReturn {
   history: ExtractionHistoryItem[];
-  addOrUpdateHistory: (
-    item: ExtractionHistoryItem
-  ) => void;
-  markAsSaved: (
-    id: string
-  ) => void;
-  removeHistory: (
-    id: string
-  ) => void;
+  addOrUpdateHistory: (item: ExtractionHistoryItem) => void;
+  markAsSaved: (id: string) => void;
+  removeHistory: (id: string) => void;
   clearHistory: () => void;
 }
 
 export function useExtractionHistory(): UseExtractionHistoryReturn {
-  const [history, setHistory] =
-  useState<ExtractionHistoryItem[]>(() =>
-    getExtractionHistory()
-  );
+  const [history, setHistory] = useState<ExtractionHistoryItem[]>(() => getExtractionHistory());
 
-  const addOrUpdateHistory = useCallback(
-    (
-      item: ExtractionHistoryItem
-    ) => {
-      const nextItems =
-        upsertExtractionHistory(
-          item
-        );
+  const addOrUpdateHistory = useCallback((item: ExtractionHistoryItem) => {
+    const nextItems = upsertExtractionHistory(item);
 
-      setHistory(nextItems);
-    },
-    []
-  );
+    setHistory(nextItems);
+  }, []);
 
-  const markAsSaved = useCallback(
-    (
-      id: string
-    ) => {
-      const currentHistory =
-        getExtractionHistory();
+  const markAsSaved = useCallback((id: string) => {
+    const currentHistory = getExtractionHistory();
 
-      const targetItem =
-        currentHistory.find(
-          (item) =>
-            item.id === id
-        );
+    const targetItem = currentHistory.find((item) => item.id === id);
 
-      if (!targetItem) {
-        return;
-      }
+    if (!targetItem) {
+      return;
+    }
 
-      const nextItems =
-        upsertExtractionHistory({
-          ...targetItem,
-          savedToSheetAt:
-            new Date().toISOString(),
-        });
+    const nextItems = upsertExtractionHistory({ ...targetItem, savedAt: new Date().toISOString() });
 
-      setHistory(nextItems);
-    },
-    []
-  );
+    setHistory(nextItems);
+  }, []);
 
-  const removeHistory = useCallback(
-    (
-      id: string
-    ) => {
-      const nextItems =
-        removeExtractionHistory(
-          id
-        );
+  const removeHistory = useCallback((id: string) => {
+    const nextItems = removeExtractionHistory(id);
 
-      setHistory(nextItems);
-    },
-    []
-  );
+    setHistory(nextItems);
+  }, []);
 
-  const clearHistory =
-    useCallback(() => {
-      clearExtractionHistory();
-      setHistory([]);
-    }, []);
+  const clearHistory = useCallback(() => {
+    clearExtractionHistory();
+    setHistory([]);
+  }, []);
 
-  return {
-    history,
-    addOrUpdateHistory,
-    markAsSaved,
-    removeHistory,
-    clearHistory,
-  };
+  return { history, addOrUpdateHistory, markAsSaved, removeHistory, clearHistory };
 }

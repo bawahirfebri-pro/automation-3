@@ -1,10 +1,19 @@
 import type { GoogleSpreadsheetRow } from "google-spreadsheet";
-import type { AktaResult } from "@/types/akta";
-import type { KkResult, KkAnggota } from "@/types/kk";
+
 import { formatTeksResmi } from "@/lib/formatting/text-formatter";
 
+import type { AktaResult } from "@/types/akta";
+import type { KkAnggota, KkResult } from "@/types/kk";
+
 function normalizeName(value: string | null | undefined): string {
-  return (value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  return (value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function formatGolonganDarah(value: string | null | undefined): string {
@@ -22,7 +31,11 @@ function formatJenisKelamin(value: string | null | undefined): string {
   return result;
 }
 
-function setRowValue(targetRow: GoogleSpreadsheetRow, column: string, value: string | null | undefined): void {
+function setRowValue(
+  targetRow: GoogleSpreadsheetRow,
+  column: string,
+  value: string | null | undefined,
+): void {
   const cleanValue = value?.toString().trim() || "";
   if (!cleanValue) return;
   try {
@@ -50,7 +63,11 @@ function findDataIbu(listAnggota: KkAnggota[]): KkAnggota | undefined {
   return listAnggota.find((anggota) => {
     const status = (anggota.status_hubungan_dalam_keluarga || "").toLowerCase().trim();
     const jk = (anggota.jenis_kelamin || "").toLowerCase().trim();
-    return (status.includes("kepala keluarga") && jk.includes("perempuan")) || status.includes("istri") || status.includes("isteri");
+    return (
+      (status.includes("kepala keluarga") && jk.includes("perempuan")) ||
+      status.includes("istri") ||
+      status.includes("isteri")
+    );
   });
 }
 
@@ -58,13 +75,18 @@ export function mapDataToRow(
   targetRow: GoogleSpreadsheetRow,
   extractedData: KkResult | null,
   aktaData: AktaResult | null,
-  namaSiswaTarget: string
+  namaSiswaTarget: string,
 ): void {
   const listAnggota = extractedData?.anggota_keluarga ?? [];
-  const dataMurid = extractedData && listAnggota.length > 0 ? findDataMurid(listAnggota, namaSiswaTarget) : undefined;
+  const dataMurid =
+    extractedData && listAnggota.length > 0
+      ? findDataMurid(listAnggota, namaSiswaTarget)
+      : undefined;
 
   if (extractedData && listAnggota.length > 0 && !dataMurid) {
-    throw new Error(`Data siswa "${namaSiswaTarget}" tidak ditemukan secara tepat dalam anggota Kartu Keluarga.`);
+    throw new Error(
+      `Data siswa "${namaSiswaTarget}" tidak ditemukan secara tepat dalam anggota Kartu Keluarga.`,
+    );
   }
 
   // Akta
@@ -129,12 +151,24 @@ export function mapDataToRow(
     const nomor = index + 1;
     setRowValue(targetRow, `Nama Anggota ${nomor}`, formatTeksResmi(anggota.nama_lengkap));
     setRowValue(targetRow, `NIK Anggota ${nomor}`, anggota.nik);
-    setRowValue(targetRow, `Jenis Kelamin Anggota ${nomor}`, formatJenisKelamin(anggota.jenis_kelamin));
-    setRowValue(targetRow, `Status Anggota ${nomor}`, formatTeksResmi(anggota.status_hubungan_dalam_keluarga));
+    setRowValue(
+      targetRow,
+      `Jenis Kelamin Anggota ${nomor}`,
+      formatJenisKelamin(anggota.jenis_kelamin),
+    );
+    setRowValue(
+      targetRow,
+      `Status Anggota ${nomor}`,
+      formatTeksResmi(anggota.status_hubungan_dalam_keluarga),
+    );
     setRowValue(targetRow, `Tempat Lahir Anggota ${nomor}`, formatTeksResmi(anggota.tempat_lahir));
     setRowValue(targetRow, `Tanggal Lahir Anggota ${nomor}`, anggota.tanggal_lahir);
     setRowValue(targetRow, `Agama Anggota ${nomor}`, formatTeksResmi(anggota.agama));
-    setRowValue(targetRow, `Golongan Darah Anggota ${nomor}`, formatGolonganDarah(anggota.golongan_darah));
+    setRowValue(
+      targetRow,
+      `Golongan Darah Anggota ${nomor}`,
+      formatGolonganDarah(anggota.golongan_darah),
+    );
     setRowValue(targetRow, `Pendidikan Anggota ${nomor}`, formatTeksResmi(anggota.pendidikan));
     setRowValue(targetRow, `Pekerjaan Anggota ${nomor}`, formatTeksResmi(anggota.jenis_pekerjaan));
     setRowValue(targetRow, `Nama Ayah dari Anggota ${nomor}`, formatTeksResmi(anggota.nama_ayah));

@@ -6,14 +6,7 @@ interface Params {
 }
 
 type DocumentRemovalPlan =
-  | {
-      mode: "virtual";
-      remainingRows: number[];
-    }
-  | {
-      mode: "physical";
-      remainingRows: [];
-    };
+  { mode: "virtual"; remainingRows: number[] } | { mode: "physical"; remainingRows: [] };
 
 export function planDocumentRemoval({
   hasKkExtraction,
@@ -22,26 +15,15 @@ export function planDocumentRemoval({
   studentRowIndex,
 }: Params): DocumentRemovalPlan {
   const currentScopedRows = [...new Set(scopedRows)];
-  const isSharedKk =
-    hasKkExtraction &&
-    rawRows.length > 1 &&
-    studentRowIndex !== null;
+  const isSharedKk = hasKkExtraction && rawRows.length > 1 && studentRowIndex !== null;
 
   if (isSharedKk) {
-    const remainingRows = currentScopedRows.filter(
-      (rowIndex) => rowIndex !== studentRowIndex
-    );
+    const remainingRows = currentScopedRows.filter((rowIndex) => rowIndex !== studentRowIndex);
 
     if (remainingRows.length > 0) {
-      return {
-        mode: "virtual",
-        remainingRows,
-      };
+      return { mode: "virtual", remainingRows };
     }
   }
 
-  return {
-    mode: "physical",
-    remainingRows: [],
-  };
+  return { mode: "physical", remainingRows: [] };
 }

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-  matchStudentWithAi,
-  type AiStudentCandidate,
-} from "@/lib/students/student-ai-matcher";
+
+import { type AiStudentCandidate, matchStudentWithAi } from "@/lib/students/student-ai-matcher";
 
 interface MatchStudentRequest {
   detectedNames: string[];
@@ -33,7 +31,7 @@ export async function POST(request: Request) {
               typeof candidate?.score === "number" &&
               Number.isFinite(candidate.score) &&
               candidate.score >= 0 &&
-              candidate.score <= 1
+              candidate.score <= 1,
           )
           .sort((a, b) => b.score - a.score)
           .slice(0, MAX_CANDIDATES)
@@ -41,28 +39,19 @@ export async function POST(request: Request) {
 
     if (detectedNames.length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Nama hasil ekstraksi tidak tersedia.",
-        },
-        { status: 400 }
+        { success: false, message: "Nama hasil ekstraksi tidak tersedia." },
+        { status: 400 },
       );
     }
 
     if (candidates.length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Kandidat siswa tidak tersedia.",
-        },
-        { status: 400 }
+        { success: false, message: "Kandidat siswa tidak tersedia." },
+        { status: 400 },
       );
     }
 
-    const result = await matchStudentWithAi({
-      detectedNames,
-      candidates,
-    });
+    const result = await matchStudentWithAi({ detectedNames, candidates });
 
     /*
      * Defense-in-depth:
@@ -75,30 +64,20 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json({
         success: true,
-        data: {
-          matched: false,
-          rowIndex: null,
-          modelUsed: result.modelUsed,
-        },
+        data: { matched: false, rowIndex: null, modelUsed: result.modelUsed },
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error("[POST /api/students/match]", error);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Gagal mencocokkan nama siswa.",
+        message: error instanceof Error ? error.message : "Gagal mencocokkan nama siswa.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

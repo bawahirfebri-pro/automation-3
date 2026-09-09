@@ -1,4 +1,5 @@
 import type { StudentSaveData } from "@/features/student-document-extraction/types/student-save";
+
 import type { FileExtractionState } from "@/types/extraction";
 import type { StudentRecord } from "@/types/student";
 
@@ -21,11 +22,8 @@ export function buildSessionSavePayload({
     return null;
   }
 
-  const studentFileKeys = currentFileKeys.filter(
-    (fileKey) =>
-      (scopedRowsByFile[fileKey] ?? []).includes(
-        student.rowIndex
-      )
+  const studentFileKeys = currentFileKeys.filter((fileKey) =>
+    (scopedRowsByFile[fileKey] ?? []).includes(student.rowIndex),
   );
 
   if (studentFileKeys.length === 0) {
@@ -33,32 +31,18 @@ export function buildSessionSavePayload({
   }
 
   const studentExtractions = studentFileKeys
-    .map((fileKey) => ({
-      fileKey,
-      extraction: fileExtractions[fileKey],
-    }))
-    .filter((item): item is {
-      fileKey: string;
-      extraction: FileExtractionState;
-    } => Boolean(item.extraction));
+    .map((fileKey) => ({ fileKey, extraction: fileExtractions[fileKey] }))
+    .filter((item): item is { fileKey: string; extraction: FileExtractionState } =>
+      Boolean(item.extraction),
+    );
 
-  const kkItem =
-    studentExtractions.find(
-      ({ extraction }) => Boolean(extraction.kk)
-    ) ?? null;
+  const kkItem = studentExtractions.find(({ extraction }) => Boolean(extraction.kk)) ?? null;
 
-  const aktaItem =
-    studentExtractions.find(
-      ({ extraction }) => Boolean(extraction.akta)
-    ) ?? null;
+  const aktaItem = studentExtractions.find(({ extraction }) => Boolean(extraction.akta)) ?? null;
 
-  const extractedData = !student.kkComplete
-    ? kkItem?.extraction.kk ?? null
-    : null;
+  const extractedData = !student.kkComplete ? (kkItem?.extraction.kk ?? null) : null;
 
-  const aktaData = !student.aktaComplete
-    ? aktaItem?.extraction.akta ?? null
-    : null;
+  const aktaData = !student.aktaComplete ? (aktaItem?.extraction.akta ?? null) : null;
 
   if (!extractedData && !aktaData) {
     return null;

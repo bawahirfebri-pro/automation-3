@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+
 import {
   getSessionReadiness,
   type SessionReadinessParams,
@@ -44,6 +45,6 @@ export function useSessionReadiness({
       pendingUploadFileKeys,
       isExtracting,
       isAiMatching,
-    ]
+    ],
   );
 }

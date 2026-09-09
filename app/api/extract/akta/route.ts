@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { extractAktaDocument } from "@/features/student-document-extraction/lib/extraction/akta-extraction";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -10,41 +11,29 @@ export async function POST(request: Request) {
 
     if (!(file instanceof File)) {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "File PDF tidak ditemukan.",
-        },
-        { status: 400 }
+        { status: "error", message: "File PDF tidak ditemukan." },
+        { status: 400 },
       );
     }
 
     if (file.size === 0) {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "File yang dikirim kosong.",
-        },
-        { status: 400 }
+        { status: "error", message: "File yang dikirim kosong." },
+        { status: 400 },
       );
     }
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "Ukuran file terlalu besar. Maksimal 10 MB.",
-        },
-        { status: 400 }
+        { status: "error", message: "Ukuran file terlalu besar. Maksimal 10 MB." },
+        { status: 400 },
       );
     }
 
     if (file.type !== "application/pdf") {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "Format file harus PDF.",
-        },
-        { status: 400 }
+        { status: "error", message: "Format file harus PDF." },
+        { status: 400 },
       );
     }
 
@@ -59,16 +48,8 @@ export async function POST(request: Request) {
     console.error("[API /extract/akta]", error);
 
     const message =
-      error instanceof Error
-        ? error.message
-        : "Terjadi kesalahan saat memproses dokumen Akta.";
+      error instanceof Error ? error.message : "Terjadi kesalahan saat memproses dokumen Akta.";
 
-    return NextResponse.json(
-      {
-        status: "error",
-        message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ status: "error", message }, { status: 500 });
   }
 }

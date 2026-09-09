@@ -1,10 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-export type ClassifiedDocumentType =
-  | "kk"
-  | "akta"
-  | "both"
-  | "unknown";
+export type ClassifiedDocumentType = "kk" | "akta" | "both" | "unknown";
 
 interface ClassificationResult {
   type: ClassifiedDocumentType;
@@ -48,28 +44,13 @@ export async function classifyDocument(file: File): Promise<ClassificationResult
     model: CLASSIFIER_MODEL,
     contents: [
       { text: CLASSIFICATION_PROMPT },
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType: "application/pdf",
-        },
-      },
+      { inlineData: { data: base64Data, mimeType: "application/pdf" } },
     ],
     config: {
       responseMimeType: "application/json",
       responseJsonSchema: {
         type: "object",
-        properties: {
-          type: {
-            type: "string",
-            enum: [
-  "kk",
-  "akta",
-  "both",
-  "unknown",
-],
-          },
-        },
+        properties: { type: { type: "string", enum: ["kk", "akta", "both", "unknown"] } },
         required: ["type"],
         additionalProperties: false,
       },
@@ -92,19 +73,9 @@ export async function classifyDocument(file: File): Promise<ClassificationResult
 
   const type = (parsed as { type?: unknown }).type;
 
-if (
-  type !== "kk" &&
-  type !== "akta" &&
-  type !== "both" &&
-  type !== "unknown"
-) {
-  throw new Error(
-    "Jenis dokumen tidak dapat dikenali."
-  );
-}
+  if (type !== "kk" && type !== "akta" && type !== "both" && type !== "unknown") {
+    throw new Error("Jenis dokumen tidak dapat dikenali.");
+  }
 
-  return {
-    type,
-    modelUsed: CLASSIFIER_MODEL,
-  };
+  return { type, modelUsed: CLASSIFIER_MODEL };
 }

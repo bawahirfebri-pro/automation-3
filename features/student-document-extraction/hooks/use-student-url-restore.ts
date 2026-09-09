@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { getNikFromPathname } from "@/lib/students/student-url";
+
 import type { StudentRecord } from "@/types/student";
 
 interface Params {
@@ -9,11 +10,7 @@ interface Params {
   onSelectStudent: (student: StudentRecord) => void | Promise<unknown>;
 }
 
-export function useStudentUrlRestore({
-  loadingStudents,
-  students,
-  onSelectStudent,
-}: Params) {
+export function useStudentUrlRestore({ loadingStudents, students, onSelectStudent }: Params) {
   const restoredNikRef = useRef("");
   const onSelectStudentRef = useRef(onSelectStudent);
 
@@ -22,57 +19,32 @@ export function useStudentUrlRestore({
   }, [onSelectStudent]);
 
   useEffect(() => {
-    if (
-      loadingStudents ||
-      students.length === 0
-    ) {
+    if (loadingStudents || students.length === 0) {
       return;
     }
 
-    const nikFromUrl =
-      getNikFromPathname(
-        window.location.pathname
-      );
+    const nikFromUrl = getNikFromPathname(window.location.pathname);
 
     if (!nikFromUrl) {
       return;
     }
 
-    if (
-      restoredNikRef.current ===
-      nikFromUrl
-    ) {
+    if (restoredNikRef.current === nikFromUrl) {
       return;
     }
 
-    const student =
-      students.find(
-        (item) =>
-          item.nik
-            .replace(/\D/g, "") ===
-          nikFromUrl
-      );
+    const student = students.find((item) => item.nik.replace(/\D/g, "") === nikFromUrl);
 
     if (!student) {
-      console.warn(
-        "[STUDENT URL] NIK tidak ditemukan:",
-        nikFromUrl
-      );
+      console.warn("[STUDENT URL] NIK tidak ditemukan:", nikFromUrl);
 
-      restoredNikRef.current =
-        nikFromUrl;
+      restoredNikRef.current = nikFromUrl;
 
       return;
     }
 
-    restoredNikRef.current =
-      nikFromUrl;
+    restoredNikRef.current = nikFromUrl;
 
-    void Promise.resolve().then(() =>
-      onSelectStudentRef.current(student)
-    );
-  }, [
-    loadingStudents,
-    students,
-  ]);
+    void Promise.resolve().then(() => onSelectStudentRef.current(student));
+  }, [loadingStudents, students]);
 }

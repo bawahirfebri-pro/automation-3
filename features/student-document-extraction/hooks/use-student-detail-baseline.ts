@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { extractStudentNameFromFilename } from "@/lib/documents/document-name";
+
 import { getStudentDetail } from "@/lib/api/students";
+import { extractStudentNameFromFilename } from "@/lib/documents/document-name";
+
 import type { ExtractionHistoryItem } from "@/types/extraction-history";
-import type { StudentDetailBaseline } from "@/types/student-detail";
 import type { StudentRecord } from "@/types/student";
+import type { StudentDetailBaseline } from "@/types/student-detail";
 
 interface Params {
   filesLength: number;
@@ -11,15 +13,11 @@ interface Params {
   history: ExtractionHistoryItem[];
 }
 
-export function useStudentDetailBaseline({
-  filesLength,
-  primarySessionStudent,
-  history,
-}: Params) {
-  const [studentDetailBaseline, setStudentDetailBaseline] =
-    useState<StudentDetailBaseline | null>(null);
-  const [loadingStudentDetail, setLoadingStudentDetail] =
-    useState(false);
+export function useStudentDetailBaseline({ filesLength, primarySessionStudent, history }: Params) {
+  const [studentDetailBaseline, setStudentDetailBaseline] = useState<StudentDetailBaseline | null>(
+    null,
+  );
+  const [loadingStudentDetail, setLoadingStudentDetail] = useState(false);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -27,30 +25,18 @@ export function useStudentDetailBaseline({
 
     const student = primarySessionStudent;
 
-    if (
-      studentDetailBaseline?.rowIndex ===
-      student.rowIndex
-    ) {
+    if (studentDetailBaseline?.rowIndex === student.rowIndex) {
       return;
     }
 
-    const requestId =
-      ++requestIdRef.current;
+    const requestId = ++requestIdRef.current;
 
-    const studentId =
-      extractStudentNameFromFilename(
-        `${student.nama}_KK.pdf`
-      );
+    const studentId = extractStudentNameFromFilename(`${student.nama}_KK.pdf`);
 
-    const localItem =
-      history.find(
-        (item) => item.id === studentId
-      );
+    const localItem = history.find((item) => item.id === studentId);
 
     void Promise.resolve().then(async () => {
-      if (
-        requestIdRef.current !== requestId
-      ) {
+      if (requestIdRef.current !== requestId) {
         return;
       }
 
@@ -70,15 +56,9 @@ export function useStudentDetailBaseline({
       setLoadingStudentDetail(true);
 
       try {
-        const detail =
-          await getStudentDetail(
-            student.rowIndex
-          );
+        const detail = await getStudentDetail(student.rowIndex);
 
-        if (
-          requestIdRef.current !==
-          requestId
-        ) {
+        if (requestIdRef.current !== requestId) {
           return;
         }
 
@@ -90,34 +70,20 @@ export function useStudentDetailBaseline({
           modelUsedAkta: "",
         });
       } catch (error) {
-        if (
-          requestIdRef.current !==
-          requestId
-        ) {
+        if (requestIdRef.current !== requestId) {
           return;
         }
 
-        console.error(
-          "[Upload Baseline Detail]",
-          error
-        );
+        console.error("[Upload Baseline Detail]", error);
 
         setStudentDetailBaseline(null);
       } finally {
-        if (
-          requestIdRef.current ===
-          requestId
-        ) {
+        if (requestIdRef.current === requestId) {
           setLoadingStudentDetail(false);
         }
       }
     });
-  }, [
-    filesLength,
-    primarySessionStudent,
-    studentDetailBaseline?.rowIndex,
-    history,
-  ]);
+  }, [filesLength, primarySessionStudent, studentDetailBaseline?.rowIndex, history]);
 
   const resetStudentDetailBaseline = () => {
     requestIdRef.current += 1;

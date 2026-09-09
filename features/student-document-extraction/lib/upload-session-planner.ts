@@ -21,9 +21,7 @@ export function planUploadSessionMerge({
   existingFiles.forEach((file) => {
     const fileKey = getDocumentFileKey(file);
     const rawRows = rawRowsByFile[fileKey] ?? [];
-    const overlapRows = rawRows.filter((rowIndex) =>
-      incomingRowSet.has(rowIndex)
-    );
+    const overlapRows = rawRows.filter((rowIndex) => incomingRowSet.has(rowIndex));
 
     if (rawRows.length === 0) {
       keptOldFiles.push(file);
@@ -40,9 +38,5 @@ export function planUploadSessionMerge({
     delete nextScopes[fileKey];
   });
 
-  return {
-    keptOldFiles,
-    removedOldFiles,
-    nextScopes,
-  };
+  return { keptOldFiles, removedOldFiles, nextScopes };
 }

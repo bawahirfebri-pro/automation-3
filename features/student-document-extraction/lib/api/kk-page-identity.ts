@@ -1,59 +1,30 @@
-import type {
-  PageDocumentType,
-  PageIdentity,
-} from "@/types/page-identity";
+import type { PageDocumentType, PageIdentity } from "@/types/page-identity";
 
-export async function getKkPageIdentity(
-  file: File
-): Promise<PageIdentity> {
-  const formData =
-    new FormData();
+export async function getKkPageIdentity(file: File): Promise<PageIdentity> {
+  const formData = new FormData();
 
-  formData.append(
-    "file",
-    file
-  );
+  formData.append("file", file);
 
-  const response =
-    await fetch(
-      "/api/kk-page-identity",
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+  const response = await fetch("/api/kk-page-identity", { method: "POST", body: formData });
 
-  const result =
-    await response.json();
+  const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      result.error ||
-        "Gagal membaca identitas halaman KK."
-    );
+    throw new Error(result.error || "Gagal membaca identitas halaman KK.");
   }
 
-  const documentType:
-  PageDocumentType =
-    result.documentType === "kk" ||
-    result.documentType === "akta"
+  const documentType: PageDocumentType =
+    result.documentType === "kk" || result.documentType === "akta"
       ? result.documentType
       : "unknown";
 
-return {
-  documentType,
+  return {
+    documentType,
 
-  noKk:
-    String(
-      result.noKk ?? ""
-    ),
+    noKk: String(result.noKk ?? ""),
 
-  namaKepalaKeluarga:
-    String(
-      result.namaKepalaKeluarga ??
-        ""
-    ),
-};
+    namaKepalaKeluarga: String(result.namaKepalaKeluarga ?? ""),
+  };
 }
 
 export async function getKkPageIdentityWithTimeout(file: File, timeoutMs = 15000) {

@@ -12,11 +12,4 @@ export interface ManualResolutionTask {
 }
 
 export type ManualResolutionValue =
-  | {
-      status: "matched";
-      rowIndex: number;
-    }
-  | {
-      status: "not-enrolled";
-      rowIndex: null;
-    };
+  { status: "matched"; rowIndex: number } | { status: "not-enrolled"; rowIndex: null };

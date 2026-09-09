@@ -1,9 +1,11 @@
 import { useEffect } from "react";
+
 import { buildSessionHistoryItems } from "@/features/student-document-extraction/lib/session-history";
-import type { ExtractionHistoryItem } from "@/types/extraction-history";
+
 import type { FileExtractionState } from "@/types/extraction";
-import type { StudentDetailBaseline } from "@/types/student-detail";
+import type { ExtractionHistoryItem } from "@/types/extraction-history";
 import type { StudentRecord } from "@/types/student";
+import type { StudentDetailBaseline } from "@/types/student-detail";
 
 interface Params {
   sessionReady: boolean;

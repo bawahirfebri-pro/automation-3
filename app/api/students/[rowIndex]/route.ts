@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
-import {
-  getSheetValue,
-  getStudentSheetRow,
-} from "@/lib/sheets/student-sheet";
 
-import { mapRowToStudentDetail } from "@/lib/sheets/student-detail-mapper";
-
-import { mapDataToRow } from "@/lib/sheets/sheet-mapper";
-import { validateExtractedKk } from "@/lib/validation/kk-validation";
 import { extractStudentNameFromFilename } from "@/lib/documents/document-name";
+import { googleSheetStudentRepository } from "@/lib/sheets/google-sheet-student-repository";
+import { validateExtractedKk } from "@/lib/validation/kk-validation";
 
 import type { AktaResult } from "@/types/akta";
 import type { KkResult } from "@/types/kk";
@@ -23,48 +17,10 @@ interface UpdateStudentRequest {
   fileName: string;
 }
 
-async function resolveTargetRow(
-  rowIndex: string
-) {
+function parseRowIndex(rowIndex: string): number | null {
   const targetRowNumber = Number(rowIndex);
 
-  if (!Number.isInteger(targetRowNumber)) {
-    return {
-      row: null,
-      error: NextResponse.json(
-        {
-          success: false,
-          message:
-            "Nomor baris murid tidak valid.",
-        },
-        { status: 400 }
-      ),
-    };
-  }
-
-  const row =
-    await getStudentSheetRow(
-      targetRowNumber
-    );
-
-  if (!row) {
-    return {
-      row: null,
-      error: NextResponse.json(
-        {
-          success: false,
-          message:
-            "Data murid tidak ditemukan.",
-        },
-        { status: 404 }
-      ),
-    };
-  }
-
-  return {
-    row,
-    error: null,
-  };
+  return Number.isInteger(targetRowNumber) ? targetRowNumber : null;
 }
 
 function normalizeName(value: string): string {
@@ -82,94 +38,76 @@ function namesEqual(a: string, b: string): boolean {
   return Boolean(first && second && first === second);
 }
 
-function kkContainsStudent(
-  data: KkResult,
-  targetName: string
-): boolean {
-  return data.anggota_keluarga.some((anggota) =>
-    namesEqual(anggota.nama_lengkap, targetName)
-  );
+function kkContainsStudent(data: KkResult, targetName: string): boolean {
+  return data.anggota_keluarga.some((anggota) => namesEqual(anggota.nama_lengkap, targetName));
 }
 
-export async function GET(
-  request: Request,
-  context: RouteContext
-) {
+export async function GET(request: Request, context: RouteContext) {
   try {
-    const { rowIndex } =
-      await context.params;
+    const { rowIndex } = await context.params;
 
-    const {
-  row: targetRow,
-  error,
-} = await resolveTargetRow(rowIndex);
+    const targetRowNumber = parseRowIndex(rowIndex);
 
-    if (error || !targetRow) {
-      return error;
+    if (targetRowNumber === null) {
+      return NextResponse.json(
+        { success: false, message: "Nomor baris murid tidak valid." },
+        { status: 400 },
+      );
     }
 
-  const detail =
-  mapRowToStudentDetail(
-    targetRow
-  );
+    const detail = await googleSheetStudentRepository.getStudentDetail(targetRowNumber);
 
-    return NextResponse.json({
-      success: true,
-      data: detail,
-    });
+    if (!detail) {
+      return NextResponse.json(
+        { success: false, message: "Data murid tidak ditemukan." },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ success: true, data: detail });
   } catch (error: unknown) {
-    console.error(
-      "[GET /api/students/[rowIndex]]",
-      error
-    );
+    console.error("[GET /api/students/[rowIndex]]", error);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Gagal membaca detail murid.",
+        message: error instanceof Error ? error.message : "Gagal membaca detail murid.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-export async function PATCH(
-  request: Request,
-  context: RouteContext
-) {
+export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const { rowIndex } =
-      await context.params;
+    const { rowIndex } = await context.params;
 
-    const {
-  row: targetRow,
-  error,
-} = await resolveTargetRow(rowIndex);
+    const targetRowNumber = parseRowIndex(rowIndex);
 
-    if (error || !targetRow) {
-      return error;
+    if (targetRowNumber === null) {
+      return NextResponse.json(
+        { success: false, message: "Nomor baris murid tidak valid." },
+        { status: 400 },
+      );
     }
 
-    const body =
-      (await request.json()) as UpdateStudentRequest;
+    const targetStudent = await googleSheetStudentRepository.getStudentRecord(targetRowNumber);
 
-    const {
-      extractedData,
-      aktaData,
-      fileName,
-    } = body;
+    if (!targetStudent) {
+      return NextResponse.json(
+        { success: false, message: "Data murid tidak ditemukan." },
+        { status: 404 },
+      );
+    }
+
+    const body = (await request.json()) as UpdateStudentRequest;
+
+    const { extractedData, aktaData, fileName } = body;
 
     if (!extractedData && !aktaData) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Tidak ada data KK atau Akta untuk disinkronkan.",
-        },
-        { status: 400 }
+        { success: false, message: "Tidak ada data KK atau Akta untuk disinkronkan." },
+        { status: 400 },
       );
     }
 
@@ -180,45 +118,30 @@ export async function PATCH(
      */
 
     if (extractedData) {
-      const validationError =
-        validateExtractedKk(
-          extractedData
-        );
+      const validationError = validateExtractedKk(extractedData);
 
       if (validationError) {
         return NextResponse.json(
-          {
-            success: false,
-            message:
-              `Ditolak oleh Server: ${validationError}`,
-          },
-          { status: 400 }
+          { success: false, message: `Ditolak oleh Server: ${validationError}` },
+          { status: 400 },
         );
       }
     }
 
     /*
      * ========================================================
-     * 2. IDENTITAS ROW GOOGLE SHEET
+     * 2. IDENTITAS DATA SISWA TUJUAN
      *
      * Row yang diminta adalah sumber kebenaran utama.
      * ========================================================
      */
 
-    const targetStudentName =
-  getSheetValue(
-    targetRow,
-    "Nama"
-  );
+    const targetStudentName = targetStudent.nama;
 
     if (!targetStudentName) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Nama murid pada row Google Sheet kosong.",
-        },
-        { status: 400 }
+        { success: false, message: "Nama murid pada data tujuan kosong." },
+        { status: 400 },
       );
     }
 
@@ -234,26 +157,15 @@ export async function PATCH(
      * ========================================================
      */
 
-    const fileTargetName = fileName
-      ? extractStudentNameFromFilename(
-          fileName
-        )
-      : "";
+    const fileTargetName = fileName ? extractStudentNameFromFilename(fileName) : "";
 
-    if (
-      fileTargetName &&
-      !namesEqual(
-        fileTargetName,
-        targetStudentName
-      )
-    ) {
+    if (fileTargetName && !namesEqual(fileTargetName, targetStudentName)) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            `Target dokumen "${fileTargetName}" tidak sesuai dengan murid pada baris tujuan "${targetStudentName}".`,
+          message: `Target dokumen "${fileTargetName}" tidak sesuai dengan murid pada baris tujuan "${targetStudentName}".`,
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -273,20 +185,13 @@ export async function PATCH(
      * ========================================================
      */
 
-    if (
-      extractedData &&
-      !kkContainsStudent(
-        extractedData,
-        targetStudentName
-      )
-    ) {
+    if (extractedData && !kkContainsStudent(extractedData, targetStudentName)) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            `Murid "${targetStudentName}" tidak ditemukan dalam anggota Kartu Keluarga yang akan disimpan.`,
+          message: `Murid "${targetStudentName}" tidak ditemukan dalam anggota Kartu Keluarga yang akan disimpan.`,
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -300,20 +205,13 @@ export async function PATCH(
      * ========================================================
      */
 
-    if (
-      aktaData?.nama_anak &&
-      !namesEqual(
-        aktaData.nama_anak,
-        targetStudentName
-      )
-    ) {
+    if (aktaData?.nama_anak && !namesEqual(aktaData.nama_anak, targetStudentName)) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            `Akta atas nama "${aktaData.nama_anak}" tidak sesuai dengan murid pada baris tujuan "${targetStudentName}".`,
+          message: `Akta atas nama "${aktaData.nama_anak}" tidak sesuai dengan murid pada baris tujuan "${targetStudentName}".`,
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -322,42 +220,35 @@ export async function PATCH(
      * 6. NAMA TARGET FINAL
      *
      * Tidak lagi bergantung pada anggota pertama KK.
-     * Nama row Google Sheet menjadi canonical target.
+     * Nama pada data siswa tujuan menjadi canonical target.
      * ========================================================
      */
 
-    const namaSiswaTarget =
-      targetStudentName;
-
-    mapDataToRow(
-      targetRow,
+    const saved = await googleSheetStudentRepository.updateStudentDocuments({
+      rowIndex: targetRowNumber,
       extractedData,
       aktaData,
-      namaSiswaTarget
-    );
-
-    await targetRow.save();
-
-    return NextResponse.json({
-      success: true,
-      message:
-        "Data murid berhasil disinkronkan.",
+      studentName: targetStudentName,
     });
+
+    if (!saved) {
+      return NextResponse.json(
+        { success: false, message: "Data murid tidak ditemukan." },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ success: true, message: "Data murid berhasil disinkronkan." });
   } catch (error: unknown) {
-    console.error(
-      "[PATCH /api/students/[rowIndex]]",
-      error
-    );
+    console.error("[PATCH /api/students/[rowIndex]]", error);
 
     return NextResponse.json(
       {
         success: false,
         message:
-          error instanceof Error
-            ? error.message
-            : "Terjadi kesalahan saat menyimpan data murid.",
+          error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan data murid.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

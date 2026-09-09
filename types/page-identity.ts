@@ -1,7 +1,4 @@
-export type PageDocumentType =
-  | "kk"
-  | "akta"
-  | "unknown";
+export type PageDocumentType = "kk" | "akta" | "unknown";
 
 export interface PageIdentity {
   documentType: PageDocumentType;

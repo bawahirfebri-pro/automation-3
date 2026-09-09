@@ -1,6 +1,6 @@
 import type { FileExtractionState } from "@/types/extraction";
-import type { StudentDetailBaseline } from "@/types/student-detail";
 import type { StudentRecord } from "@/types/student";
+import type { StudentDetailBaseline } from "@/types/student-detail";
 
 interface Params {
   currentFileKeys: string[];
@@ -24,7 +24,9 @@ export function getSessionDocumentState({
   studentDetailBaseline,
 }: Params) {
   const primaryStudentFileKeys = primarySessionStudent
-    ? currentFileKeys.filter((fileKey) => (scopedRowsByFile[fileKey] ?? []).includes(primarySessionStudent.rowIndex))
+    ? currentFileKeys.filter((fileKey) =>
+        (scopedRowsByFile[fileKey] ?? []).includes(primarySessionStudent.rowIndex),
+      )
     : [];
 
   const primaryStudentExtractions = primaryStudentFileKeys
@@ -34,19 +36,19 @@ export function getSessionDocumentState({
   const sessionKkExtraction = primaryStudentExtractions.find((item) => item.kk) ?? null;
   const sessionAktaExtraction = primaryStudentExtractions.find((item) => item.akta) ?? null;
 
-  const unregisteredExtraction = sessionStudents.length > 0
-    ? null
-    : currentFileKeys
-        .map((fileKey) => fileExtractions[fileKey])
-        .filter(Boolean)
-        .find((extraction) => extraction.kk || extraction.akta) ?? null;
+  const unregisteredExtraction =
+    sessionStudents.length > 0
+      ? null
+      : (currentFileKeys
+          .map((fileKey) => fileExtractions[fileKey])
+          .filter(Boolean)
+          .find((extraction) => extraction.kk || extraction.akta) ?? null);
 
   let activeStudentBaseline: StudentDetailBaseline | null = null;
 
   if (studentDetailBaseline) {
-    const activeRowIndex = filesLength > 0
-      ? primarySessionStudent?.rowIndex ?? null
-      : selectedStudentRow;
+    const activeRowIndex =
+      filesLength > 0 ? (primarySessionStudent?.rowIndex ?? null) : selectedStudentRow;
 
     if (activeRowIndex !== null && studentDetailBaseline.rowIndex === activeRowIndex) {
       activeStudentBaseline = studentDetailBaseline;

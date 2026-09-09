@@ -25,11 +25,7 @@ export const KkResultSchema = z.object({
   kode_pos: z.string().default(""),
   tanggal_dikeluarkan: z.string().default(""),
 
-  anggota_keluarga: z
-    .array(KkAnggotaSchema)
-    .default([]),
+  anggota_keluarga: z.array(KkAnggotaSchema).default([]),
 });
 
-export type KkSchemaResult = z.infer<
-  typeof KkResultSchema
->;
+export type KkSchemaResult = z.infer<typeof KkResultSchema>;

@@ -1,8 +1,4 @@
-import type {
-  FileExtractionState,
-} from "@/types/extraction";
-import type { StudentRecord } from "@/types/student";
-
+import { getEligibleKkStudents } from "@/lib/students/kk-student-eligibility";
 import {
   findExactStudentMatch,
   findFuzzyStudentMatch,
@@ -11,15 +7,11 @@ import {
   normalizeStudentName,
   type StudentNameCandidate,
 } from "@/lib/students/student-matcher";
-import { getEligibleKkStudents } from "@/lib/students/kk-student-eligibility";
 
-export type FileStudentMatchSource =
-  | "exact"
-  | "fuzzy"
-  | "ai"
-  | "manual"
-  | "filename"
-  | "unmatched";
+import type { FileExtractionState } from "@/types/extraction";
+import type { StudentRecord } from "@/types/student";
+
+export type FileStudentMatchSource = "exact" | "fuzzy" | "ai" | "manual" | "filename" | "unmatched";
 
 export interface FileStudentMatch {
   rowIndex: number | null;
@@ -67,17 +59,13 @@ export interface LocalFileStudentMatchResult {
 
 export function createFileStudentMatch(
   rowIndexes: number[],
-  source: FileStudentMatchSource
+  source: FileStudentMatchSource,
 ): FileStudentMatch {
   const uniqueRowIndexes = [
     ...new Set(rowIndexes.filter((rowIndex) => Number.isInteger(rowIndex))),
   ];
 
-  return {
-    rowIndex: uniqueRowIndexes[0] ?? null,
-    rowIndexes: uniqueRowIndexes,
-    source,
-  };
+  return { rowIndex: uniqueRowIndexes[0] ?? null, rowIndexes: uniqueRowIndexes, source };
 }
 
 function createUnmatchedFileStudentMatch(): FileStudentMatch {
@@ -89,7 +77,7 @@ function createResolution(
   locallyMatched: number,
   locallyNotEnrolled: number,
   pendingAiTasks: number,
-  manualRequiredTasks: number
+  manualRequiredTasks: number,
 ): FileResolutionState {
   return {
     totalCandidates,
@@ -102,23 +90,16 @@ function createResolution(
 
 function createStudentNameCandidate(
   name: string,
-  source: StudentNameCandidate["source"]
+  source: StudentNameCandidate["source"],
 ): StudentNameCandidate {
-  return {
-    name,
-    normalizedName: normalizeStudentName(name),
-    source,
-  };
+  return { name, normalizedName: normalizeStudentName(name), source };
 }
 
-function getUniqueCandidates(
-  candidates: StudentNameCandidate[]
-): StudentNameCandidate[] {
+function getUniqueCandidates(candidates: StudentNameCandidate[]): StudentNameCandidate[] {
   const seen = new Set<string>();
 
   return candidates.filter((candidate) => {
-    const normalized =
-      candidate.normalizedName || normalizeStudentName(candidate.name);
+    const normalized = candidate.normalizedName || normalizeStudentName(candidate.name);
 
     if (!normalized || seen.has(normalized)) return false;
 
@@ -127,35 +108,19 @@ function getUniqueCandidates(
   });
 }
 
-function isSimpleNameTypo(
-  detectedName: string,
-  studentName: string
-): boolean {
-  const detectedWords =
-    normalizeStudentName(detectedName)
-      .split(" ")
-      .filter(Boolean);
+function isSimpleNameTypo(detectedName: string, studentName: string): boolean {
+  const detectedWords = normalizeStudentName(detectedName).split(" ").filter(Boolean);
 
-  const studentWords =
-    normalizeStudentName(studentName)
-      .split(" ")
-      .filter(Boolean);
+  const studentWords = normalizeStudentName(studentName).split(" ").filter(Boolean);
 
-  if (
-    detectedWords.length === 0 ||
-    detectedWords.length !== studentWords.length
-  ) {
+  if (detectedWords.length === 0 || detectedWords.length !== studentWords.length) {
     return false;
   }
 
   let changedWords = 0;
   let totalEdits = 0;
 
-  for (
-    let index = 0;
-    index < detectedWords.length;
-    index += 1
-  ) {
+  for (let index = 0; index < detectedWords.length; index += 1) {
     const detectedWord = detectedWords[index];
     const studentWord = studentWords[index];
 
@@ -163,18 +128,11 @@ function isSimpleNameTypo(
       continue;
     }
 
-    const distance = levenshteinDistance(
-      detectedWord,
-      studentWord
-    );
+    const distance = levenshteinDistance(detectedWord, studentWord);
 
-    const longestLength = Math.max(
-      detectedWord.length,
-      studentWord.length
-    );
+    const longestLength = Math.max(detectedWord.length, studentWord.length);
 
-    const maxWordEdits =
-      longestLength >= 8 ? 2 : 1;
+    const maxWordEdits = longestLength >= 8 ? 2 : 1;
 
     if (distance > maxWordEdits) {
       return false;
@@ -184,21 +142,16 @@ function isSimpleNameTypo(
     totalEdits += distance;
   }
 
-  return (
-    changedWords <= 2 &&
-    totalEdits <= 2
-  );
+  return changedWords <= 2 && totalEdits <= 2;
 }
 
-function getKkStudentCandidates(
-  extraction: FileExtractionState
-): StudentNameCandidate[] {
+function getKkStudentCandidates(extraction: FileExtractionState): StudentNameCandidate[] {
   if (!extraction.kk) return [];
 
   const candidates = getUniqueCandidates(
     getEligibleKkStudents(extraction.kk.anggota_keluarga).map((anggota) =>
-      createStudentNameCandidate(anggota.nama_lengkap, "kk")
-    )
+      createStudentNameCandidate(anggota.nama_lengkap, "kk"),
+    ),
   );
 
   return candidates;
@@ -206,10 +159,9 @@ function getKkStudentCandidates(
 
 function findExactRowsForCandidate(
   candidate: StudentNameCandidate,
-  students: StudentRecord[]
+  students: StudentRecord[],
 ): number[] {
-  const normalized =
-    candidate.normalizedName || normalizeStudentName(candidate.name);
+  const normalized = candidate.normalizedName || normalizeStudentName(candidate.name);
 
   const rows = students
     .filter((student) => normalizeStudentName(student.nama) === normalized)
@@ -221,48 +173,27 @@ function findExactRowsForCandidate(
 function createCandidateRows(
   rows: number[],
   fallbackName: string,
-  students: StudentRecord[]
+  students: StudentRecord[],
 ): StudentMatchCandidateRow[] {
   return rows.map((rowIndex) => {
     const student = students.find((item) => item.rowIndex === rowIndex);
 
-    return {
-      rowIndex,
-      nama: student?.nama || fallbackName,
-      score: 1,
-    };
+    return { rowIndex, nama: student?.nama || fallbackName, score: 1 };
   });
 }
 
 function createAiTask(
   candidate: StudentNameCandidate,
   students: StudentRecord[],
-  excludedRows: Set<number>
+  excludedRows: Set<number>,
 ): PendingAiCandidateTask | null {
-  const fuzzyCandidates =
-  getFuzzyStudentCandidates(
-    [candidate],
-    students,
-    5
-  )
-    .filter(
-      ({ student }) =>
-        !excludedRows.has(
-          student.rowIndex
-        )
-    )
-    .filter(
-      ({ student }) =>
-        isSimpleNameTypo(
-          candidate.name,
-          student.nama
-        )
-    );
+  const fuzzyCandidates = getFuzzyStudentCandidates([candidate], students, 5)
+    .filter(({ student }) => !excludedRows.has(student.rowIndex))
+    .filter(({ student }) => isSimpleNameTypo(candidate.name, student.nama));
 
   if (fuzzyCandidates.length === 0) return null;
 
-  const normalized =
-    candidate.normalizedName || normalizeStudentName(candidate.name);
+  const normalized = candidate.normalizedName || normalizeStudentName(candidate.name);
 
   return {
     taskKey: normalized || candidate.name,
@@ -277,15 +208,12 @@ function createAiTask(
 
 function matchKkStudentsLocally(
   extraction: FileExtractionState,
-  students: StudentRecord[]
+  students: StudentRecord[],
 ): LocalFileStudentMatchResult {
-
   const candidates = getKkStudentCandidates(extraction);
 
   if (candidates.length === 0) {
-    console.warn(
-      "[KK MATCH DEBUG] Tidak ada kandidat anggota KK yang eligible."
-    );
+    console.warn("[KK MATCH DEBUG] Tidak ada kandidat anggota KK yang eligible.");
 
     return {
       match: createUnmatchedFileStudentMatch(),
@@ -305,14 +233,9 @@ function matchKkStudentsLocally(
   let locallyNotEnrolled = 0;
 
   for (const candidate of candidates) {
+    const normalized = candidate.normalizedName || normalizeStudentName(candidate.name);
 
-    const normalized =
-      candidate.normalizedName || normalizeStudentName(candidate.name);
-
-    const exactRowsForCandidate = findExactRowsForCandidate(
-      candidate,
-      students
-    );
+    const exactRowsForCandidate = findExactRowsForCandidate(candidate, students);
 
     if (exactRowsForCandidate.length === 1) {
       const rowIndex = exactRowsForCandidate[0];
@@ -321,7 +244,6 @@ function matchKkStudentsLocally(
         claimedRows.add(rowIndex);
         exactRows.push(rowIndex);
         locallyMatched += 1;
-
       } else {
         console.warn("RESULT: ROW SUDAH DIKLAIM ANGGOTA LAIN", {
           rowIndex,
@@ -333,56 +255,30 @@ function matchKkStudentsLocally(
     }
 
     if (exactRowsForCandidate.length > 1) {
-      console.warn(
-        "RESULT: DUPLICATE EXACT NAME",
-        exactRowsForCandidate
-      );
+      console.warn("RESULT: DUPLICATE EXACT NAME", exactRowsForCandidate);
 
       manualTasks.push({
         taskKey: `duplicate:${normalized}`,
         detectedName: candidate.name,
         reason: "duplicate-name",
-        candidates: createCandidateRows(
-          exactRowsForCandidate,
-          candidate.name,
-          students
-        ),
+        candidates: createCandidateRows(exactRowsForCandidate, candidate.name, students),
       });
 
       continue;
     }
 
-    const fuzzy =
-  findFuzzyStudentMatch(
-    [candidate],
-    students
-  );
+    const fuzzy = findFuzzyStudentMatch([candidate], students);
 
-const simpleTypoMatch =
-  fuzzy &&
-  isSimpleNameTypo(
-    candidate.name,
-    fuzzy.student.nama
-  );
+    const simpleTypoMatch = fuzzy && isSimpleNameTypo(candidate.name, fuzzy.student.nama);
 
-if (
-  fuzzy &&
-  simpleTypoMatch &&
-  !claimedRows.has(
-    fuzzy.student.rowIndex
-  )
-) {
-  claimedRows.add(
-    fuzzy.student.rowIndex
-  );
+    if (fuzzy && simpleTypoMatch && !claimedRows.has(fuzzy.student.rowIndex)) {
+      claimedRows.add(fuzzy.student.rowIndex);
 
-  fuzzyRows.push(
-    fuzzy.student.rowIndex
-  );
+      fuzzyRows.push(fuzzy.student.rowIndex);
 
-  locallyMatched += 1;
-  continue;
-}
+      locallyMatched += 1;
+      continue;
+    }
 
     const aiTask = createAiTask(candidate, students, claimedRows);
 
@@ -394,19 +290,10 @@ if (
 
     locallyNotEnrolled += 1;
 
-    console.warn(
-      "RESULT: NOT ENROLLED / NO MATCH",
-      candidate.name
-    );
-
+    console.warn("RESULT: NOT ENROLLED / NO MATCH", candidate.name);
   }
 
-  const rowIndexes = [
-    ...new Set([
-      ...exactRows,
-      ...fuzzyRows,
-    ]),
-  ];
+  const rowIndexes = [...new Set([...exactRows, ...fuzzyRows])];
 
   let source: FileStudentMatchSource = "unmatched";
 
@@ -425,14 +312,12 @@ if (
       locallyMatched,
       locallyNotEnrolled,
       aiTasks.length,
-      manualTasks.length
+      manualTasks.length,
     ),
   };
 }
 
-function getAktaCandidates(
-  extraction: FileExtractionState
-): StudentNameCandidate[] {
+function getAktaCandidates(extraction: FileExtractionState): StudentNameCandidate[] {
   const nama = extraction.akta?.nama_anak?.trim();
 
   if (!nama) return [];
@@ -442,11 +327,9 @@ function getAktaCandidates(
 
 function matchAktaStudentLocally(
   extraction: FileExtractionState,
-  students: StudentRecord[]
+  students: StudentRecord[],
 ): LocalFileStudentMatchResult {
-  const candidates = getUniqueCandidates(
-    getAktaCandidates(extraction)
-  );
+  const candidates = getUniqueCandidates(getAktaCandidates(extraction));
 
   if (candidates.length === 0) {
     return {
@@ -464,10 +347,7 @@ function matchAktaStudentLocally(
     const normalized = normalizeStudentName(exact.candidate.name);
 
     const exactRows = students
-      .filter(
-        (student) =>
-          normalizeStudentName(student.nama) === normalized
-      )
+      .filter((student) => normalizeStudentName(student.nama) === normalized)
       .map((student) => student.rowIndex);
 
     if (exactRows.length === 1) {
@@ -488,11 +368,7 @@ function matchAktaStudentLocally(
             taskKey: `duplicate:${normalized}`,
             detectedName: exact.candidate.name,
             reason: "duplicate-name",
-            candidates: createCandidateRows(
-              exactRows,
-              exact.candidate.name,
-              students
-            ),
+            candidates: createCandidateRows(exactRows, exact.candidate.name, students),
           },
         ],
         resolution: createResolution(1, 0, 0, 0, 1),
@@ -502,55 +378,28 @@ function matchAktaStudentLocally(
 
   const fuzzy = findFuzzyStudentMatch(candidates, students);
 
-  if (
-  fuzzy &&
-  isSimpleNameTypo(
-    candidate.name,
-    fuzzy.student.nama
-  )
-) {
-  return {
-    match:
-      createFileStudentMatch(
-        [fuzzy.student.rowIndex],
-        "fuzzy"
-      ),
-    pendingAi: null,
-    manualTasks: [],
-    resolution:
-      createResolution(
-        1,
-        1,
-        0,
-        0,
-        0
-      ),
-  };
-}
+  if (fuzzy && isSimpleNameTypo(candidate.name, fuzzy.student.nama)) {
+    return {
+      match: createFileStudentMatch([fuzzy.student.rowIndex], "fuzzy"),
+      pendingAi: null,
+      manualTasks: [],
+      resolution: createResolution(1, 1, 0, 0, 0),
+    };
+  }
 
-  const aiTask = createAiTask(
-    candidate,
-    students,
-    new Set<number>()
-  );
+  const aiTask = createAiTask(candidate, students, new Set<number>());
 
   return {
     match: createUnmatchedFileStudentMatch(),
     pendingAi: aiTask ? { tasks: [aiTask] } : null,
     manualTasks: [],
-    resolution: createResolution(
-      1,
-      0,
-      aiTask ? 0 : 1,
-      aiTask ? 1 : 0,
-      0
-    ),
+    resolution: createResolution(1, 0, aiTask ? 0 : 1, aiTask ? 1 : 0, 0),
   };
 }
 
 export function matchFileStudentLocally(
   extraction: FileExtractionState,
-  students: StudentRecord[]
+  students: StudentRecord[],
 ): LocalFileStudentMatchResult {
   if (extraction.kk) {
     return matchKkStudentsLocally(extraction, students);
@@ -569,12 +418,16 @@ export function matchFileStudentLocally(
 }
 
 export function getNamedStudentRow(file: File, students: StudentRecord[]): number | null {
-  const match = file.name.match(/^(.*?)[\s_-]+(?:kk|kartu[\s_-]*keluarga|akta(?:[\s_-]*kelahiran)?)\.pdf$/i);
+  const match = file.name.match(
+    /^(.*?)[\s_-]+(?:kk|kartu[\s_-]*keluarga|akta(?:[\s_-]*kelahiran)?)\.pdf$/i,
+  );
   if (!match) return null;
   const key = normalizeStudentName(match[1].replace(/[_-]+/g, " ").trim());
   if (!key) return null;
   const exact = students.filter((student) => normalizeStudentName(student.nama) === key);
   if (exact.length === 1) return exact[0].rowIndex;
-  const prefix = students.filter((student) => normalizeStudentName(student.nama).startsWith(`${key} `));
+  const prefix = students.filter((student) =>
+    normalizeStudentName(student.nama).startsWith(`${key} `),
+  );
   return prefix.length === 1 ? prefix[0].rowIndex : null;
 }

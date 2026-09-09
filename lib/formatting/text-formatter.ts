@@ -39,8 +39,23 @@ export function formatTeksResmi(str: string): string {
   hasil = hasil.replace(/\bRs\b/g, "RS");
 
   const singkatan = [
-    "Dki", "Sd", "Smp", "Sma", "Smk", "Slta", "Sltp", "Mi", "Mts", "Ma",
-    "D1", "D2", "D3", "D4", "S1", "S2", "S3",
+    "Dki",
+    "Sd",
+    "Smp",
+    "Sma",
+    "Smk",
+    "Slta",
+    "Sltp",
+    "Mi",
+    "Mts",
+    "Ma",
+    "D1",
+    "D2",
+    "D3",
+    "D4",
+    "S1",
+    "S2",
+    "S3",
   ];
 
   singkatan.forEach((s) => {

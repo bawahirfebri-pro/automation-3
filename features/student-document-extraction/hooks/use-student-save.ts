@@ -4,11 +4,9 @@ import { saveStudentData } from "@/features/student-document-extraction/lib/api/
 
 import type { StudentSaveData } from "@/features/student-document-extraction/types/student-save";
 
-const DEFAULT_SAVE_ERROR =
-  "Terjadi kesalahan jaringan saat mengirim ke Google Sheet.";
+const DEFAULT_SAVE_ERROR = "Terjadi kesalahan jaringan saat menyimpan data murid.";
 
-const SUCCESS_SAVE_MESSAGE =
-  "Sukses! Data siswa berhasil disinkronkan.";
+const SUCCESS_SAVE_MESSAGE = "Sukses! Data siswa berhasil disinkronkan.";
 
 interface SaveResult {
   success: boolean;
@@ -39,47 +37,29 @@ export function useStudentSave() {
    */
   const savingRef = useRef(false);
 
-  const executeSave = useCallback(
-    async (dataToSave: StudentSaveData): Promise<SaveResult> => {
-      try {
-        const data = await saveStudentData(dataToSave);
+  const executeSave = useCallback(async (dataToSave: StudentSaveData): Promise<SaveResult> => {
+    try {
+      const data = await saveStudentData(dataToSave);
 
-        if (data.success) {
-          return {
-            success: true,
-            message: data.message || SUCCESS_SAVE_MESSAGE,
-          };
-        }
-
-        const message =
-          data.message ||
-          ("error" in data ? data.error : "") ||
-          "Data gagal disimpan.";
-
-        return {
-          success: false,
-          message,
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : DEFAULT_SAVE_ERROR,
-        };
+      if (data.success) {
+        return { success: true, message: data.message || SUCCESS_SAVE_MESSAGE };
       }
-    },
-    []
-  );
+
+      const message = data.message || ("error" in data ? data.error : "") || "Data gagal disimpan.";
+
+      return { success: false, message };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : DEFAULT_SAVE_ERROR,
+      };
+    }
+  }, []);
 
   const save = useCallback(
     async (dataToSave: StudentSaveData): Promise<SaveResult> => {
       if (savingRef.current) {
-        return {
-          success: false,
-          message: "Proses penyimpanan sedang berlangsung.",
-        };
+        return { success: false, message: "Proses penyimpanan sedang berlangsung." };
       }
 
       savingRef.current = true;
@@ -89,11 +69,7 @@ export function useStudentSave() {
       try {
         const result = await executeSave(dataToSave);
 
-        setSaveMessage(
-          result.success
-            ? SUCCESS_SAVE_MESSAGE
-            : `Gagal: ${result.message}`
-        );
+        setSaveMessage(result.success ? SUCCESS_SAVE_MESSAGE : `Gagal: ${result.message}`);
 
         return result;
       } finally {
@@ -101,7 +77,7 @@ export function useStudentSave() {
         setSaving(false);
       }
     },
-    [executeSave]
+    [executeSave],
   );
 
   const saveMany = useCallback(
@@ -121,7 +97,7 @@ export function useStudentSave() {
         (item) =>
           Number.isInteger(item.rowIndex) &&
           Boolean(item.extractedData || item.aktaData) &&
-          Boolean(item.fileName.trim())
+          Boolean(item.fileName.trim()),
       );
 
       if (validItems.length === 0) {
@@ -139,11 +115,7 @@ export function useStudentSave() {
        * Proteksi supaya row siswa yang sama tidak ditulis dua kali
        * dalam satu operasi batch.
        */
-      const uniqueItems = [
-        ...new Map(
-          validItems.map((item) => [item.rowIndex, item])
-        ).values(),
-      ];
+      const uniqueItems = [...new Map(validItems.map((item) => [item.rowIndex, item])).values()];
 
       savingRef.current = true;
       setSaving(true);
@@ -154,7 +126,7 @@ export function useStudentSave() {
          * Sengaja sequential, bukan Promise.all().
          *
          * Alasannya:
-         * - lebih aman terhadap rate limit Google Sheets;
+         * - lebih aman terhadap rate limit layanan penyimpanan;
          * - error satu siswa tidak membatalkan siswa lain;
          * - urutan hasil tetap sesuai request.
          */
@@ -163,23 +135,14 @@ export function useStudentSave() {
         for (const item of uniqueItems) {
           const result = await executeSave(item);
 
-          results.push({
-            rowIndex: item.rowIndex,
-            fileName: item.fileName,
-            ...result,
-          });
+          results.push({ rowIndex: item.rowIndex, fileName: item.fileName, ...result });
         }
 
-        const successCount = results.filter(
-          (result) => result.success
-        ).length;
+        const successCount = results.filter((result) => result.success).length;
 
-        const failedCount =
-          results.length - successCount;
+        const failedCount = results.length - successCount;
 
-        const success =
-          results.length > 0 &&
-          failedCount === 0;
+        const success = results.length > 0 && failedCount === 0;
 
         let message: string;
 
@@ -189,46 +152,25 @@ export function useStudentSave() {
               ? SUCCESS_SAVE_MESSAGE
               : `${successCount} data siswa berhasil disinkronkan.`;
         } else if (successCount > 0) {
-          message =
-            `${successCount} siswa berhasil, ` +
-            `${failedCount} siswa gagal disimpan.`;
+          message = `${successCount} siswa berhasil, ` + `${failedCount} siswa gagal disimpan.`;
         } else {
-          message =
-            results[0]?.message ||
-            "Semua data siswa gagal disimpan.";
+          message = results[0]?.message || "Semua data siswa gagal disimpan.";
         }
 
-        setSaveMessage(
-          success || successCount > 0
-            ? message
-            : `Gagal: ${message}`
-        );
+        setSaveMessage(success || successCount > 0 ? message : `Gagal: ${message}`);
 
-        return {
-          success,
-          total: results.length,
-          successCount,
-          failedCount,
-          results,
-          message,
-        };
+        return { success, total: results.length, successCount, failedCount, results, message };
       } finally {
         savingRef.current = false;
         setSaving(false);
       }
     },
-    [executeSave]
+    [executeSave],
   );
 
   const clearSaveMessage = useCallback(() => {
     setSaveMessage("");
   }, []);
 
-  return {
-    saving,
-    saveMessage,
-    save,
-    saveMany,
-    clearSaveMessage,
-  };
+  return { saving, saveMessage, save, saveMany, clearSaveMessage };
 }

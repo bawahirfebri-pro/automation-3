@@ -1,5 +1,6 @@
-import type { KkResult } from "@/types/kk";
 import { formatTeksTampilan } from "@/lib/formatting/text-formatter";
+
+import type { KkResult } from "@/types/kk";
 
 interface KkMembersProps {
   data: KkResult | null;
@@ -20,9 +21,7 @@ function formatJenisKelamin(value: string): string {
   return "-";
 }
 
-function getJenisKelaminBadgeClass(
-  value: string | null | undefined
-): string {
+function getJenisKelaminBadgeClass(value: string | null | undefined): string {
   const gender = value?.trim().toLowerCase() || "";
 
   if (gender === "l" || gender.includes("laki")) {
@@ -36,32 +35,26 @@ function getJenisKelaminBadgeClass(
   return "bg-gray-100 text-gray-500";
 }
 
-export default function KkMembers({
-  data,
-  studentName,
-  isLoading = false,
-}: KkMembersProps) {
-if (isLoading) {
-  return (
-    <section className="col-span-12">
-      <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-gray-200 bg-white">
-        <div className="flex flex-col items-center px-6 text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
-            <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+export default function KkMembers({ data, studentName, isLoading = false }: KkMembersProps) {
+  if (isLoading) {
+    return (
+      <section className="col-span-12">
+        <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-gray-200 bg-white">
+          <div className="flex flex-col items-center px-6 text-center">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+            </div>
+
+            <p className="text-sm font-semibold text-gray-700">Memuat anggota keluarga</p>
+
+            <p className="mt-1 max-w-[280px] text-xs leading-5 text-gray-400">
+              Sedang menyesuaikan anggota keluarga dengan siswa yang dipilih.
+            </p>
           </div>
-
-          <p className="text-sm font-semibold text-gray-700">
-            Memuat anggota keluarga
-          </p>
-
-          <p className="mt-1 max-w-[280px] text-xs leading-5 text-gray-400">
-            Sedang menyesuaikan anggota keluarga dengan siswa yang dipilih.
-          </p>
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
+    );
+  }
   if (!data) {
     return (
       <section className="col-span-12">
@@ -88,9 +81,7 @@ if (isLoading) {
               </svg>
             </div>
 
-            <p className="text-sm font-medium text-gray-600">
-              Anggota keluarga belum tersedia
-            </p>
+            <p className="text-sm font-medium text-gray-600">Anggota keluarga belum tersedia</p>
 
             <p className="mt-1 text-xs text-gray-400">
               Ekstrak dokumen KK untuk menampilkan daftar anggota keluarga.
@@ -109,9 +100,7 @@ if (isLoading) {
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">
-              Anggota Keluarga
-            </h2>
+            <h2 className="text-sm font-semibold text-gray-900">Anggota Keluarga</h2>
 
             <p className="mt-0.5 text-xs text-gray-500">
               {anggotaKeluarga.length} anggota terdeteksi
@@ -139,44 +128,26 @@ if (isLoading) {
         ) : (
           <div className="max-h-[520px] overflow-auto">
             <table className="w-full min-w-[1400px] text-left text-sm">
-              <thead className="sticky top-0 z-20 bg-gray-50/95 text-[10px] font-semibold uppercase tracking-wide text-gray-400 backdrop-blur">
+              <thead className="sticky top-0 z-20 bg-gray-50/95 text-[10px] font-semibold tracking-wide text-gray-400 uppercase backdrop-blur">
                 <tr>
-                  <th className="sticky left-0 z-30 w-[150px] min-w-[150px] whitespace-nowrap border-b border-gray-100 bg-gray-50 px-4 py-3">
+                  <th className="sticky left-0 z-30 w-[150px] min-w-[150px] border-b border-gray-100 bg-gray-50 px-4 py-3 whitespace-nowrap">
                     NIK
                   </th>
                   <th className="sticky left-[150px] z-30 min-w-[210px] border-b border-gray-100 bg-gray-50 px-4 py-3 shadow-[4px_0_8px_-6px_rgba(0,0,0,0.25)]">
                     Nama Lengkap
                   </th>
-                  <th className="border-b border-gray-100 px-4 py-3 text-center">
-                    J.K.
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3">
-                    Tempat Lahir
-                  </th>
-                  <th className="whitespace-nowrap border-b border-gray-100 px-4 py-3">
+                  <th className="border-b border-gray-100 px-4 py-3 text-center">J.K.</th>
+                  <th className="border-b border-gray-100 px-4 py-3">Tempat Lahir</th>
+                  <th className="border-b border-gray-100 px-4 py-3 whitespace-nowrap">
                     Tgl Lahir
                   </th>
-                  <th className="border-b border-gray-100 px-4 py-3 text-center">
-                    Goldar
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3">
-                    Agama
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3">
-                    Pendidikan
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3">
-                    Pekerjaan
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3">
-                    Status
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3">
-                    Nama Ayah
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3">
-                    Nama Ibu
-                  </th>
+                  <th className="border-b border-gray-100 px-4 py-3 text-center">Goldar</th>
+                  <th className="border-b border-gray-100 px-4 py-3">Agama</th>
+                  <th className="border-b border-gray-100 px-4 py-3">Pendidikan</th>
+                  <th className="border-b border-gray-100 px-4 py-3">Pekerjaan</th>
+                  <th className="border-b border-gray-100 px-4 py-3">Status</th>
+                  <th className="border-b border-gray-100 px-4 py-3">Nama Ayah</th>
+                  <th className="border-b border-gray-100 px-4 py-3">Nama Ibu</th>
                 </tr>
               </thead>
 
@@ -184,12 +155,9 @@ if (isLoading) {
                 {anggotaKeluarga.map((anggota, index) => {
                   const normalizedMemberName = normalizeName(anggota.nama_lengkap || "");
                   const isTargetStudent =
-                    normalizedStudentName !== "" &&
-                    normalizedMemberName === normalizedStudentName;
+                    normalizedStudentName !== "" && normalizedMemberName === normalizedStudentName;
 
-                  const stickyBackground = isTargetStudent
-                    ? "bg-blue-50"
-                    : "bg-white";
+                  const stickyBackground = isTargetStudent ? "bg-blue-50" : "bg-white";
 
                   return (
                     <tr
@@ -201,7 +169,7 @@ if (isLoading) {
                       }
                     >
                       <td
-                        className={`sticky left-0 z-10 w-[150px] min-w-[150px] whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-500 ${stickyBackground}`}
+                        className={`sticky left-0 z-10 w-[150px] min-w-[150px] px-4 py-3 font-mono text-xs whitespace-nowrap text-gray-500 ${stickyBackground}`}
                       >
                         {anggota.nik || "-"}
                       </td>
@@ -221,20 +189,20 @@ if (isLoading) {
                       </td>
 
                       <td className="px-4 py-3 text-center">
-  <span
-    className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${getJenisKelaminBadgeClass(
-      anggota.jenis_kelamin
-    )}`}
-  >
-    {formatJenisKelamin(anggota.jenis_kelamin)}
-  </span>
-</td>
+                        <span
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${getJenisKelaminBadgeClass(
+                            anggota.jenis_kelamin,
+                          )}`}
+                        >
+                          {formatJenisKelamin(anggota.jenis_kelamin)}
+                        </span>
+                      </td>
 
                       <td className="px-4 py-3 text-gray-600">
                         {formatTeksTampilan(anggota.tempat_lahir)}
                       </td>
 
-                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-500">
+                      <td className="px-4 py-3 font-mono text-xs whitespace-nowrap text-gray-500">
                         {anggota.tanggal_lahir || "-"}
                       </td>
 
@@ -255,10 +223,8 @@ if (isLoading) {
                       </td>
 
                       <td className="px-4 py-3">
-                        <span className="inline-flex whitespace-nowrap rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
-                          {formatTeksTampilan(
-                            anggota.status_hubungan_dalam_keluarga
-                          )}
+                        <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium whitespace-nowrap text-blue-700">
+                          {formatTeksTampilan(anggota.status_hubungan_dalam_keluarga)}
                         </span>
                       </td>
 

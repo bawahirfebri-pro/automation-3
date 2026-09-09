@@ -12,41 +12,29 @@ export async function POST(request: Request) {
     // Validasi file
     if (!(file instanceof File)) {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "File PDF tidak ditemukan.",
-        },
-        { status: 400 }
+        { status: "error", message: "File PDF tidak ditemukan." },
+        { status: 400 },
       );
     }
 
     if (file.size === 0) {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "File yang dikirim kosong.",
-        },
-        { status: 400 }
+        { status: "error", message: "File yang dikirim kosong." },
+        { status: 400 },
       );
     }
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "Ukuran file terlalu besar. Maksimal 10 MB.",
-        },
-        { status: 400 }
+        { status: "error", message: "Ukuran file terlalu besar. Maksimal 10 MB." },
+        { status: 400 },
       );
     }
 
     if (file.type !== "application/pdf") {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "Format file harus PDF.",
-        },
-        { status: 400 }
+        { status: "error", message: "Format file harus PDF." },
+        { status: 400 },
       );
     }
 
@@ -62,16 +50,8 @@ export async function POST(request: Request) {
     console.error("[API /extract/kk]", error);
 
     const message =
-      error instanceof Error
-        ? error.message
-        : "Terjadi kesalahan saat memproses dokumen.";
+      error instanceof Error ? error.message : "Terjadi kesalahan saat memproses dokumen.";
 
-    return NextResponse.json(
-      {
-        status: "error",
-        message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ status: "error", message }, { status: 500 });
   }
 }

@@ -1,6 +1,4 @@
-import type {
-  ExtractedDocumentType,
-} from "@/types/extraction";
+import type { ExtractedDocumentType } from "@/types/extraction";
 
 function sanitizeFileName(value: string): string {
   return value
@@ -11,7 +9,7 @@ function sanitizeFileName(value: string): string {
 
 export function createCanonicalFileName(
   studentName: string,
-  documentType: ExtractedDocumentType
+  documentType: ExtractedDocumentType,
 ): string {
   const safeStudentName = sanitizeFileName(studentName);
   if (!safeStudentName) return "";

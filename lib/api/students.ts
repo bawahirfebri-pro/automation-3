@@ -10,9 +10,7 @@ interface StudentDetailError {
   message: string;
 }
 
-type StudentDetailResponse =
-  | StudentDetailSuccess
-  | StudentDetailError;
+type StudentDetailResponse = StudentDetailSuccess | StudentDetailError;
 
 export interface StudentMatchCandidate {
   rowIndex: number;
@@ -22,11 +20,7 @@ export interface StudentMatchCandidate {
 
 interface StudentMatchSuccess {
   success: true;
-  data: {
-    matched: boolean;
-    rowIndex: number | null;
-    modelUsed: string;
-  };
+  data: { matched: boolean; rowIndex: number | null; modelUsed: string };
 }
 
 interface StudentMatchError {
@@ -34,26 +28,15 @@ interface StudentMatchError {
   message: string;
 }
 
-type StudentMatchResponse =
-  | StudentMatchSuccess
-  | StudentMatchError;
+type StudentMatchResponse = StudentMatchSuccess | StudentMatchError;
 
-export async function getStudentDetail(
-  rowIndex: number
-): Promise<StudentDetail> {
-  const response = await fetch(`/api/students/${rowIndex}`, {
-    method: "GET",
-    cache: "no-store",
-  });
+export async function getStudentDetail(rowIndex: number): Promise<StudentDetail> {
+  const response = await fetch(`/api/students/${rowIndex}`, { method: "GET", cache: "no-store" });
 
   const data = (await response.json()) as StudentDetailResponse;
 
   if (!response.ok || !data.success) {
-    throw new Error(
-      !data.success
-        ? data.message
-        : "Gagal membaca detail murid."
-    );
+    throw new Error(!data.success ? data.message : "Gagal membaca detail murid.");
   }
 
   return data.data;
@@ -61,27 +44,18 @@ export async function getStudentDetail(
 
 export async function matchStudentName(
   detectedNames: string[],
-  candidates: StudentMatchCandidate[]
+  candidates: StudentMatchCandidate[],
 ) {
   const response = await fetch("/api/students/match", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      detectedNames,
-      candidates,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ detectedNames, candidates }),
   });
 
   const data = (await response.json()) as StudentMatchResponse;
 
   if (!response.ok || !data.success) {
-    throw new Error(
-      !data.success
-        ? data.message
-        : "Gagal mencocokkan nama siswa."
-    );
+    throw new Error(!data.success ? data.message : "Gagal mencocokkan nama siswa.");
   }
 
   return data.data;

@@ -1,36 +1,18 @@
 import { useState } from "react";
 
-import {
-  extractDocument,
-} from "@/features/student-document-extraction/lib/extraction/document-extraction";
+import { getDocumentFileKey } from "@/lib/documents/document-file-key";
 
-import type {
-  AktaResult,
-} from "@/types/akta";
+import { extractDocument } from "@/features/student-document-extraction/lib/extraction/document-extraction";
 
-import type {
-  KkResult,
-} from "@/types/kk";
+import type { AktaResult } from "@/types/akta";
+import type { ExtractedDocumentType, FileExtractionState } from "@/types/extraction";
+import type { KkResult } from "@/types/kk";
 
-import {
-  getDocumentFileKey,
-} from "@/lib/documents/document-file-key";
+const DEFAULT_MODEL_NAME = "Tidak diketahui";
 
-import type {
-  ExtractedDocumentType,
-  FileExtractionState,
-} from "@/types/extraction";
+const DEFAULT_ERROR_MESSAGE = "Terjadi kesalahan saat memproses dokumen.";
 
-const DEFAULT_MODEL_NAME =
-  "Tidak diketahui";
-
-const DEFAULT_ERROR_MESSAGE =
-  "Terjadi kesalahan saat memproses dokumen.";
-
-type DataSource =
-  | "none"
-  | "extraction"
-  | "sheet";
+type DataSource = "none" | "extraction" | "stored";
 
 interface RestoreExtractionData {
   kk: KkResult | null;
@@ -51,175 +33,58 @@ interface UseDocumentExtractionReturn {
   aktaSource: DataSource;
   processedFileKeys: string[];
   failedFileKeys: string[];
-  documentTypes: Record<
-    string,
-    ExtractedDocumentType
-  >;
-  fileExtractions: Record<
-    string,
-    FileExtractionState
-  >;
+  documentTypes: Record<string, ExtractedDocumentType>;
+  fileExtractions: Record<string, FileExtractionState>;
   errorMsg: string;
-  extract: (
-    files: File[]
-  ) => Promise<void>;
-  removeFileExtraction: (
-    file: File
-  ) => void;
-  restore: (
-    data: RestoreExtractionData
-  ) => void;
+  extract: (files: File[]) => Promise<void>;
+  removeFileExtraction: (file: File) => void;
+  restore: (data: RestoreExtractionData) => void;
   reset: () => void;
 }
 
-export function useDocumentExtraction():
-  UseDocumentExtractionReturn {
-  const [
-    isExtracting,
-    setIsExtracting,
-  ] = useState(false);
+export function useDocumentExtraction(): UseDocumentExtractionReturn {
+  const [isExtracting, setIsExtracting] = useState(false);
 
-  const [
-    resultKk,
-    setResultKk,
-  ] =
-    useState<KkResult | null>(
-      null
-    );
+  const [resultKk, setResultKk] = useState<KkResult | null>(null);
 
-  const [
-    resultAkta,
-    setResultAkta,
-  ] =
-    useState<AktaResult | null>(
-      null
-    );
+  const [resultAkta, setResultAkta] = useState<AktaResult | null>(null);
 
-  const [
-    modelUsedKk,
-    setModelUsedKk,
-  ] = useState("");
+  const [modelUsedKk, setModelUsedKk] = useState("");
 
-  const [
-    modelUsedAkta,
-    setModelUsedAkta,
-  ] = useState("");
+  const [modelUsedAkta, setModelUsedAkta] = useState("");
 
-  const [
-    kkSource,
-    setKkSource,
-  ] =
-    useState<DataSource>(
-      "none"
-    );
+  const [kkSource, setKkSource] = useState<DataSource>("none");
 
-  const [
-    aktaSource,
-    setAktaSource,
-  ] =
-    useState<DataSource>(
-      "none"
-    );
+  const [aktaSource, setAktaSource] = useState<DataSource>("none");
 
-  const [
-    processedFileKeys,
-    setProcessedFileKeys,
-  ] =
-    useState<string[]>([]);
+  const [processedFileKeys, setProcessedFileKeys] = useState<string[]>([]);
 
-  const [
-    failedFileKeys,
-    setFailedFileKeys,
-  ] =
-    useState<string[]>([]);
+  const [failedFileKeys, setFailedFileKeys] = useState<string[]>([]);
 
-  const [
-    documentTypes,
-    setDocumentTypes,
-  ] = useState<
-    Record<
-      string,
-      ExtractedDocumentType
-    >
-  >({});
+  const [documentTypes, setDocumentTypes] = useState<Record<string, ExtractedDocumentType>>({});
 
-  const [
-    fileExtractions,
-    setFileExtractions,
-  ] = useState<
-    Record<
-      string,
-      FileExtractionState
-    >
-  >({});
+  const [fileExtractions, setFileExtractions] = useState<Record<string, FileExtractionState>>({});
 
-  const [
-    errorMsg,
-    setErrorMsg,
-  ] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const rebuildAggregate = (
-    extractions: Record<
-      string,
-      FileExtractionState
-    >
-  ) => {
-    const values =
-      Object.values(
-        extractions
-      );
+  const rebuildAggregate = (extractions: Record<string, FileExtractionState>) => {
+    const values = Object.values(extractions);
 
-    const latestKk = [
-      ...values,
-    ]
-      .reverse()
-      .find(
-        (item) =>
-          item.kk
-      );
+    const latestKk = [...values].reverse().find((item) => item.kk);
 
-    const latestAkta = [
-      ...values,
-    ]
-      .reverse()
-      .find(
-        (item) =>
-          item.akta
-      );
+    const latestAkta = [...values].reverse().find((item) => item.akta);
 
-    setResultKk(
-      latestKk?.kk ||
-      null
-    );
+    setResultKk(latestKk?.kk || null);
 
-    setResultAkta(
-      latestAkta?.akta ||
-      null
-    );
+    setResultAkta(latestAkta?.akta || null);
 
-    setModelUsedKk(
-      latestKk
-        ?.modelUsedKk ||
-      ""
-    );
+    setModelUsedKk(latestKk?.modelUsedKk || "");
 
-    setModelUsedAkta(
-      latestAkta
-        ?.modelUsedAkta ||
-      ""
-    );
+    setModelUsedAkta(latestAkta?.modelUsedAkta || "");
 
-    setKkSource(
-      latestKk?.kk
-        ? "extraction"
-        : "none"
-    );
+    setKkSource(latestKk?.kk ? "extraction" : "none");
 
-    setAktaSource(
-      latestAkta?.akta
-        ? "extraction"
-        : "none"
-    );
+    setAktaSource(latestAkta?.akta ? "extraction" : "none");
   };
 
   const reset = () => {
@@ -232,71 +97,34 @@ export function useDocumentExtraction():
     setKkSource("none");
     setAktaSource("none");
 
-    setProcessedFileKeys(
-      []
-    );
+    setProcessedFileKeys([]);
 
-    setFailedFileKeys(
-      []
-    );
+    setFailedFileKeys([]);
 
-    setDocumentTypes(
-      {}
-    );
+    setDocumentTypes({});
 
-    setFileExtractions(
-      {}
-    );
+    setFileExtractions({});
 
     setErrorMsg("");
   };
 
-  const restore = (
-    data:
-      RestoreExtractionData
-  ) => {
-    setResultKk(
-      data.kk
-    );
+  const restore = (data: RestoreExtractionData) => {
+    setResultKk(data.kk);
 
-    setResultAkta(
-      data.akta
-    );
+    setResultAkta(data.akta);
 
-    setModelUsedKk(
-      data.modelUsedKk ||
-      ""
-    );
+    setModelUsedKk(data.modelUsedKk || "");
 
-    setModelUsedAkta(
-      data.modelUsedAkta ||
-      ""
-    );
+    setModelUsedAkta(data.modelUsedAkta || "");
 
-    setKkSource(
-      data.kk
-        ? data.kkSource ||
-          "sheet"
-        : "none"
-    );
-
-    setAktaSource(
-      data.akta
-        ? data.aktaSource ||
-          "sheet"
-        : "none"
-    );
+    setKkSource(data.kk ? data.kkSource || "stored" : "none");
+    setAktaSource(data.akta ? data.aktaSource || "stored" : "none");
 
     setErrorMsg("");
   };
 
-  const extract = async (
-    files: File[]
-  ) => {
-    if (
-      files.length === 0 ||
-      isExtracting
-    ) {
+  const extract = async (files: File[]) => {
+    if (files.length === 0 || isExtracting) {
       return;
     }
 
@@ -304,349 +132,163 @@ export function useDocumentExtraction():
     setIsExtracting(true);
 
     try {
-      const results =
-        await Promise.allSettled(
-          files.map(
-            (file) =>
-              extractDocument(
-                file
-              )
-          )
-        );
+      const results = await Promise.allSettled(files.map((file) => extractDocument(file)));
 
-      const errors:
-        string[] = [];
+      const errors: string[] = [];
 
-      const attemptedKeys:
-        string[] = [];
+      const attemptedKeys: string[] = [];
 
-      const failedKeys:
-        string[] = [];
+      const failedKeys: string[] = [];
 
-      const extractedTypes:
-        Record<
-          string,
-          ExtractedDocumentType
-        > = {};
+      const extractedTypes: Record<string, ExtractedDocumentType> = {};
 
-      const newExtractions:
-        Record<
-          string,
-          FileExtractionState
-        > = {};
+      const newExtractions: Record<string, FileExtractionState> = {};
 
-      results.forEach(
-        (
-          result,
-          index
-        ) => {
-          const file =
-            files[
-              index
-            ];
+      results.forEach((result, index) => {
+        const file = files[index];
 
-          const fileKey =
-            getDocumentFileKey(
-              file
-            );
+        const fileKey = getDocumentFileKey(file);
 
-          attemptedKeys.push(
-            fileKey
-          );
+        attemptedKeys.push(fileKey);
 
-          if (
-            result.status ===
-            "rejected"
-          ) {
-            failedKeys.push(
-              fileKey
-            );
+        if (result.status === "rejected") {
+          failedKeys.push(fileKey);
 
-            const message =
-              result.reason
-                instanceof Error
-                ? result
-                    .reason
-                    .message
-                : DEFAULT_ERROR_MESSAGE;
+          const message =
+            result.reason instanceof Error ? result.reason.message : DEFAULT_ERROR_MESSAGE;
 
-            errors.push(
-              `${file.name}: ${message}`
-            );
+          errors.push(`${file.name}: ${message}`);
 
-            return;
-          }
+          return;
+        }
 
-          const data =
-            result.value;
+        const data = result.value;
 
-          if (
-            data.type ===
-            "kk"
-          ) {
-            extractedTypes[
-              fileKey
-            ] = "kk";
+        if (data.type === "kk") {
+          extractedTypes[fileKey] = "kk";
 
-            newExtractions[
-              fileKey
-            ] = {
-              type: "kk",
-              kk:
-                data.data,
-              akta: null,
-              modelUsedKk:
-                data
-                  .model_used ||
-                DEFAULT_MODEL_NAME,
-              modelUsedAkta:
-                "",
-            };
-
-            return;
-          }
-
-          if (
-            data.type ===
-            "akta"
-          ) {
-            extractedTypes[
-              fileKey
-            ] = "akta";
-
-            newExtractions[
-              fileKey
-            ] = {
-              type:
-                "akta",
-              kk: null,
-              akta:
-                data.data,
-              modelUsedKk:
-                "",
-              modelUsedAkta:
-                data
-                  .model_used ||
-                DEFAULT_MODEL_NAME,
-            };
-
-            return;
-          }
-
-          if (
-            data.type ===
-            "both"
-          ) {
-            extractedTypes[
-              fileKey
-            ] = "both";
-
-            newExtractions[
-              fileKey
-            ] = {
-              type:
-                "both",
-              kk:
-                data
-                  .data
-                  .kk,
-              akta:
-                data
-                  .data
-                  .akta,
-              modelUsedKk:
-                data
-                  .model_used
-                  ?.kk ||
-                DEFAULT_MODEL_NAME,
-              modelUsedAkta:
-                data
-                  .model_used
-                  ?.akta ||
-                DEFAULT_MODEL_NAME,
-            };
-
-            return;
-          }
-
-          /*
-           * Dokumen berhasil
-           * diproses tetapi
-           * bukan KK / Akta.
-           */
-          extractedTypes[
-            fileKey
-          ] = "unknown";
-
-          newExtractions[
-            fileKey
-          ] = {
-            type:
-              "unknown",
-            kk: null,
+          newExtractions[fileKey] = {
+            type: "kk",
+            kk: data.data,
             akta: null,
-            modelUsedKk:
-              "",
-            modelUsedAkta:
-              "",
-          };
-        }
-      );
-
-      setProcessedFileKeys(
-        (previous) => {
-          const next =
-            new Set(
-              previous
-            );
-
-          attemptedKeys.forEach(
-            (
-              fileKey
-            ) => {
-              next.add(
-                fileKey
-              );
-            }
-          );
-
-          return [
-            ...next,
-          ];
-        }
-      );
-
-      setFailedFileKeys(
-        (previous) => {
-          const next =
-            new Set(
-              previous
-            );
-
-          attemptedKeys.forEach(
-            (
-              fileKey
-            ) => {
-              next.delete(
-                fileKey
-              );
-            }
-          );
-
-          failedKeys.forEach(
-            (
-              fileKey
-            ) => {
-              next.add(
-                fileKey
-              );
-            }
-          );
-
-          return [
-            ...next,
-          ];
-        }
-      );
-
-      setDocumentTypes(
-        (previous) => ({
-          ...previous,
-          ...extractedTypes,
-        })
-      );
-
-      setFileExtractions(
-        (previous) => {
-          const next = {
-            ...previous,
-            ...newExtractions,
+            modelUsedKk: data.model_used || DEFAULT_MODEL_NAME,
+            modelUsedAkta: "",
           };
 
-          rebuildAggregate(
-            next
-          );
-
-          return next;
+          return;
         }
-      );
 
-      if (
-        errors.length >
-        0
-      ) {
-        setErrorMsg(
-          errors.join(
-            "\n"
-          )
-        );
+        if (data.type === "akta") {
+          extractedTypes[fileKey] = "akta";
+
+          newExtractions[fileKey] = {
+            type: "akta",
+            kk: null,
+            akta: data.data,
+            modelUsedKk: "",
+            modelUsedAkta: data.model_used || DEFAULT_MODEL_NAME,
+          };
+
+          return;
+        }
+
+        if (data.type === "both") {
+          extractedTypes[fileKey] = "both";
+
+          newExtractions[fileKey] = {
+            type: "both",
+            kk: data.data.kk,
+            akta: data.data.akta,
+            modelUsedKk: data.model_used?.kk || DEFAULT_MODEL_NAME,
+            modelUsedAkta: data.model_used?.akta || DEFAULT_MODEL_NAME,
+          };
+
+          return;
+        }
+
+        /*
+         * Dokumen berhasil
+         * diproses tetapi
+         * bukan KK / Akta.
+         */
+        extractedTypes[fileKey] = "unknown";
+
+        newExtractions[fileKey] = {
+          type: "unknown",
+          kk: null,
+          akta: null,
+          modelUsedKk: "",
+          modelUsedAkta: "",
+        };
+      });
+
+      setProcessedFileKeys((previous) => {
+        const next = new Set(previous);
+
+        attemptedKeys.forEach((fileKey) => {
+          next.add(fileKey);
+        });
+
+        return [...next];
+      });
+
+      setFailedFileKeys((previous) => {
+        const next = new Set(previous);
+
+        attemptedKeys.forEach((fileKey) => {
+          next.delete(fileKey);
+        });
+
+        failedKeys.forEach((fileKey) => {
+          next.add(fileKey);
+        });
+
+        return [...next];
+      });
+
+      setDocumentTypes((previous) => ({ ...previous, ...extractedTypes }));
+
+      setFileExtractions((previous) => {
+        const next = { ...previous, ...newExtractions };
+
+        rebuildAggregate(next);
+
+        return next;
+      });
+
+      if (errors.length > 0) {
+        setErrorMsg(errors.join("\n"));
       }
     } finally {
-      setIsExtracting(
-        false
-      );
+      setIsExtracting(false);
     }
   };
 
-  const removeFileExtraction =
-    (
-      file: File
-    ) => {
-      const fileKey =
-        getDocumentFileKey(
-          file
-        );
+  const removeFileExtraction = (file: File) => {
+    const fileKey = getDocumentFileKey(file);
 
-      setProcessedFileKeys(
-        (previous) =>
-          previous.filter(
-            (key) =>
-              key !==
-              fileKey
-          )
-      );
+    setProcessedFileKeys((previous) => previous.filter((key) => key !== fileKey));
 
-      setFailedFileKeys(
-        (previous) =>
-          previous.filter(
-            (key) =>
-              key !==
-              fileKey
-          )
-      );
+    setFailedFileKeys((previous) => previous.filter((key) => key !== fileKey));
 
-      setDocumentTypes(
-        (previous) => {
-          const next = {
-            ...previous,
-          };
+    setDocumentTypes((previous) => {
+      const next = { ...previous };
 
-          delete next[
-            fileKey
-          ];
+      delete next[fileKey];
 
-          return next;
-        }
-      );
+      return next;
+    });
 
-      setFileExtractions(
-        (previous) => {
-          const next = {
-            ...previous,
-          };
+    setFileExtractions((previous) => {
+      const next = { ...previous };
 
-          delete next[
-            fileKey
-          ];
+      delete next[fileKey];
 
-          rebuildAggregate(
-            next
-          );
+      rebuildAggregate(next);
 
-          return next;
-        }
-      );
-    };
+      return next;
+    });
+  };
 
   return {
     isExtracting,

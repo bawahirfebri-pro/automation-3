@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { planDocumentRemoval } from "./document-removal-planner";
 
 describe("planDocumentRemoval", () => {
@@ -10,10 +11,7 @@ describe("planDocumentRemoval", () => {
       studentRowIndex: 10,
     });
 
-    expect(result).toEqual({
-      mode: "virtual",
-      remainingRows: [20],
-    });
+    expect(result).toEqual({ mode: "virtual", remainingRows: [20] });
   });
 
   it("menghapus physical file jika student adalah scoped member terakhir shared KK", () => {
@@ -24,10 +22,7 @@ describe("planDocumentRemoval", () => {
       studentRowIndex: 10,
     });
 
-    expect(result).toEqual({
-      mode: "physical",
-      remainingRows: [],
-    });
+    expect(result).toEqual({ mode: "physical", remainingRows: [] });
   });
 
   it("menghapus physical file jika KK bukan shared", () => {
@@ -38,10 +33,7 @@ describe("planDocumentRemoval", () => {
       studentRowIndex: 10,
     });
 
-    expect(result).toEqual({
-      mode: "physical",
-      remainingRows: [],
-    });
+    expect(result).toEqual({ mode: "physical", remainingRows: [] });
   });
 
   it("menghapus physical file untuk dokumen non-KK", () => {
@@ -52,10 +44,7 @@ describe("planDocumentRemoval", () => {
       studentRowIndex: 10,
     });
 
-    expect(result).toEqual({
-      mode: "physical",
-      remainingRows: [],
-    });
+    expect(result).toEqual({ mode: "physical", remainingRows: [] });
   });
 
   it("menghapus physical file jika tidak ada student aktif", () => {
@@ -66,10 +55,7 @@ describe("planDocumentRemoval", () => {
       studentRowIndex: null,
     });
 
-    expect(result).toEqual({
-      mode: "physical",
-      remainingRows: [],
-    });
+    expect(result).toEqual({ mode: "physical", remainingRows: [] });
   });
 
   it("menghapus duplicate scoped rows sebelum menentukan remaining rows", () => {
@@ -80,9 +66,6 @@ describe("planDocumentRemoval", () => {
       studentRowIndex: 10,
     });
 
-    expect(result).toEqual({
-      mode: "virtual",
-      remainingRows: [20],
-    });
+    expect(result).toEqual({ mode: "virtual", remainingRows: [20] });
   });
 });

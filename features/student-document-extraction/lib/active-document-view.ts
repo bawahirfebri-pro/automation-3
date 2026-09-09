@@ -1,6 +1,6 @@
 import type { AktaResult } from "@/types/akta";
-import type { KkResult } from "@/types/kk";
 import type { FileExtractionState } from "@/types/extraction";
+import type { KkResult } from "@/types/kk";
 import type { StudentRecord } from "@/types/student";
 
 interface StudentDetailBaseline {
@@ -39,10 +39,37 @@ export function getActiveDocumentView({
   modelUsedAkta,
 }: Params) {
   return {
-    activeKk: filesLength === 0 ? resultKk : sessionKkExtraction?.kk ?? unregisteredExtraction?.kk ?? activeStudentBaseline?.kk ?? null,
-    activeAkta: filesLength === 0 ? resultAkta : sessionAktaExtraction?.akta ?? unregisteredExtraction?.akta ?? activeStudentBaseline?.akta ?? null,
-    activeModelUsedKk: filesLength === 0 ? modelUsedKk : sessionKkExtraction?.modelUsedKk ?? unregisteredExtraction?.modelUsedKk ?? activeStudentBaseline?.modelUsedKk ?? "",
-    activeModelUsedAkta: filesLength === 0 ? modelUsedAkta : sessionAktaExtraction?.modelUsedAkta ?? unregisteredExtraction?.modelUsedAkta ?? activeStudentBaseline?.modelUsedAkta ?? "",
-    activeStudentName: selectedHistoryId && filesLength === 0 ? selectedHistoryId : primarySessionStudent?.nama ?? "",
+    activeKk:
+      filesLength === 0
+        ? resultKk
+        : (sessionKkExtraction?.kk ??
+          unregisteredExtraction?.kk ??
+          activeStudentBaseline?.kk ??
+          null),
+    activeAkta:
+      filesLength === 0
+        ? resultAkta
+        : (sessionAktaExtraction?.akta ??
+          unregisteredExtraction?.akta ??
+          activeStudentBaseline?.akta ??
+          null),
+    activeModelUsedKk:
+      filesLength === 0
+        ? modelUsedKk
+        : (sessionKkExtraction?.modelUsedKk ??
+          unregisteredExtraction?.modelUsedKk ??
+          activeStudentBaseline?.modelUsedKk ??
+          ""),
+    activeModelUsedAkta:
+      filesLength === 0
+        ? modelUsedAkta
+        : (sessionAktaExtraction?.modelUsedAkta ??
+          unregisteredExtraction?.modelUsedAkta ??
+          activeStudentBaseline?.modelUsedAkta ??
+          ""),
+    activeStudentName:
+      selectedHistoryId && filesLength === 0
+        ? selectedHistoryId
+        : (primarySessionStudent?.nama ?? ""),
   };
 }

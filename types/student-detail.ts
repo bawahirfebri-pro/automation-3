@@ -6,4 +6,10 @@ export interface StudentDetail {
   akta: AktaResult | null;
 }
 
-export interface StudentDetailBaseline { rowIndex: number; kk: KkResult | null; akta: AktaResult | null; modelUsedKk: string; modelUsedAkta: string; }
+export interface StudentDetailBaseline {
+  rowIndex: number;
+  kk: KkResult | null;
+  akta: AktaResult | null;
+  modelUsedKk: string;
+  modelUsedAkta: string;
+}

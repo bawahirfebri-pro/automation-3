@@ -31,12 +31,14 @@ function normalize(value: string): string {
 }
 
 function cleanDetectedNames(names: string[]): string[] {
-  return [...new Set(
-    names
-      .filter((name): name is string => typeof name === "string")
-      .map((name) => name.trim())
-      .filter(Boolean)
-  )].slice(0, 10);
+  return [
+    ...new Set(
+      names
+        .filter((name): name is string => typeof name === "string")
+        .map((name) => name.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, 10);
 }
 
 function cleanCandidates(candidates: AiStudentCandidate[]): AiStudentCandidate[] {
@@ -68,9 +70,7 @@ function cleanCandidates(candidates: AiStudentCandidate[]): AiStudentCandidate[]
     }
   }
 
-  return [...unique.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, MAX_CANDIDATES);
+  return [...unique.values()].sort((a, b) => b.score - a.score).slice(0, MAX_CANDIDATES);
 }
 
 function parseJsonResponse(text: string): GeminiMatchResponse {
@@ -97,14 +97,11 @@ function parseJsonResponse(text: string): GeminiMatchResponse {
   return parsed as GeminiMatchResponse;
 }
 
-function createPrompt(
-  detectedNames: string[],
-  candidates: AiStudentCandidate[]
-): string {
+function createPrompt(detectedNames: string[], candidates: AiStudentCandidate[]): string {
   const candidateText = candidates
     .map(
       (candidate, index) =>
-        `${index + 1}. rowIndex=${candidate.rowIndex}; nama="${candidate.nama}"; similarity=${candidate.score.toFixed(4)}`
+        `${index + 1}. rowIndex=${candidate.rowIndex}; nama="${candidate.nama}"; similarity=${candidate.score.toFixed(4)}`,
     )
     .join("\n");
 
@@ -137,7 +134,7 @@ atau:
 }
 
 export async function matchStudentWithAi(
-  params: AiStudentMatchParams
+  params: AiStudentMatchParams,
 ): Promise<AiStudentMatchResult> {
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -149,11 +146,7 @@ export async function matchStudentWithAi(
   const candidates = cleanCandidates(params.candidates);
 
   if (detectedNames.length === 0 || candidates.length === 0) {
-    return {
-      matched: false,
-      rowIndex: null,
-      modelUsed: MODEL,
-    };
+    return { matched: false, rowIndex: null, modelUsed: MODEL };
   }
 
   /*
@@ -161,25 +154,15 @@ export async function matchStudentWithAi(
    * Tetapi hanya auto-match bila exact tersebut unik.
    */
   const exactCandidates = candidates.filter((candidate) =>
-    detectedNames.some(
-      (name) => normalize(name) === normalize(candidate.nama)
-    )
+    detectedNames.some((name) => normalize(name) === normalize(candidate.nama)),
   );
 
   if (exactCandidates.length === 1) {
-    return {
-      matched: true,
-      rowIndex: exactCandidates[0].rowIndex,
-      modelUsed: "local-exact",
-    };
+    return { matched: true, rowIndex: exactCandidates[0].rowIndex, modelUsed: "local-exact" };
   }
 
   if (exactCandidates.length > 1) {
-    return {
-      matched: false,
-      rowIndex: null,
-      modelUsed: "local-exact-ambiguous",
-    };
+    return { matched: false, rowIndex: null, modelUsed: "local-exact-ambiguous" };
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -202,47 +185,26 @@ export async function matchStudentWithAi(
   }
 
   if (parsed.matched !== true) {
-    return {
-      matched: false,
-      rowIndex: null,
-      modelUsed: MODEL,
-    };
+    return { matched: false, rowIndex: null, modelUsed: MODEL };
   }
 
-  if (
-    typeof parsed.rowIndex !== "number" ||
-    !Number.isInteger(parsed.rowIndex)
-  ) {
-    return {
-      matched: false,
-      rowIndex: null,
-      modelUsed: MODEL,
-    };
+  if (typeof parsed.rowIndex !== "number" || !Number.isInteger(parsed.rowIndex)) {
+    return { matched: false, rowIndex: null, modelUsed: MODEL };
   }
 
   /*
    * Guard terpenting:
    * Gemini tidak boleh mengembalikan row di luar kandidat.
    */
-  const selectedCandidate = candidates.find(
-    (candidate) => candidate.rowIndex === parsed.rowIndex
-  );
+  const selectedCandidate = candidates.find((candidate) => candidate.rowIndex === parsed.rowIndex);
 
   if (!selectedCandidate) {
     console.warn(
-      `[Student AI Matcher] ${MODEL} mengembalikan rowIndex di luar kandidat: ${parsed.rowIndex}`
+      `[Student AI Matcher] ${MODEL} mengembalikan rowIndex di luar kandidat: ${parsed.rowIndex}`,
     );
 
-    return {
-      matched: false,
-      rowIndex: null,
-      modelUsed: MODEL,
-    };
+    return { matched: false, rowIndex: null, modelUsed: MODEL };
   }
 
-  return {
-    matched: true,
-    rowIndex: selectedCandidate.rowIndex,
-    modelUsed: MODEL,
-  };
+  return { matched: true, rowIndex: selectedCandidate.rowIndex, modelUsed: MODEL };
 }

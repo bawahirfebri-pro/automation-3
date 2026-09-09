@@ -18,7 +18,9 @@ export function useSaveFeedback() {
 
   useEffect(() => {
     const timers = timersRef.current;
-    return () => { Object.values(timers).forEach((timer) => window.clearTimeout(timer)); };
+    return () => {
+      Object.values(timers).forEach((timer) => window.clearTimeout(timer));
+    };
   }, []);
 
   return { saveFeedback, setTemporarySaveFeedback };

@@ -50,11 +50,7 @@ export function levenshteinDistance(a: string, b: string): number {
     for (let j = 1; j <= b.length; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
 
-      current[j] = Math.min(
-        current[j - 1] + 1,
-        previous[j] + 1,
-        previous[j - 1] + cost
-      );
+      current[j] = Math.min(current[j - 1] + 1, previous[j] + 1, previous[j - 1] + cost);
     }
 
     for (let j = 0; j <= b.length; j += 1) {
@@ -70,9 +66,7 @@ function levenshteinSimilarity(a: string, b: string): number {
   if (a === b) return 1;
 
   const maxLength = Math.max(a.length, b.length);
-  return maxLength === 0
-    ? 1
-    : 1 - levenshteinDistance(a, b) / maxLength;
+  return maxLength === 0 ? 1 : 1 - levenshteinDistance(a, b) / maxLength;
 }
 
 function getWords(value: string): string[] {
@@ -134,10 +128,7 @@ function containmentScore(a: string, b: string): number {
   if (!normalizedA || !normalizedB) return 0;
   if (normalizedA === normalizedB) return 1;
 
-  if (
-    normalizedA.includes(normalizedB) ||
-    normalizedB.includes(normalizedA)
-  ) {
+  if (normalizedA.includes(normalizedB) || normalizedB.includes(normalizedA)) {
     const shorter = Math.min(normalizedA.length, normalizedB.length);
     const longer = Math.max(normalizedA.length, normalizedB.length);
 
@@ -161,9 +152,7 @@ function hasStrongTokenRelation(a: string, b: string): boolean {
    * = lolos.
    */
   const exactImportantToken = wordsA.some(
-    (wordA) =>
-      wordA.length >= 4 &&
-      wordsB.some((wordB) => wordA === wordB)
+    (wordA) => wordA.length >= 4 && wordsB.some((wordB) => wordA === wordB),
   );
 
   if (exactImportantToken) return true;
@@ -178,15 +167,12 @@ function hasStrongTokenRelation(a: string, b: string): boolean {
       (wordB) =>
         wordA.length >= 4 &&
         wordB.length >= 4 &&
-        levenshteinSimilarity(wordA, wordB) >= MIN_WORD_SIMILARITY
-    )
+        levenshteinSimilarity(wordA, wordB) >= MIN_WORD_SIMILARITY,
+    ),
   );
 }
 
-function calculateStudentNameSimilarity(
-  a: string,
-  b: string
-): number {
+function calculateStudentNameSimilarity(a: string, b: string): number {
   const normalizedA = normalizeStudentName(a);
   const normalizedB = normalizeStudentName(b);
 
@@ -198,36 +184,27 @@ function calculateStudentNameSimilarity(
   const overlapScore = tokenOverlapScore(normalizedA, normalizedB);
   const containsScore = containmentScore(normalizedA, normalizedB);
 
-  const weightedScore =
-    characterScore * 0.5 +
-    wordsScore * 0.35 +
-    overlapScore * 0.15;
+  const weightedScore = characterScore * 0.5 + wordsScore * 0.35 + overlapScore * 0.15;
 
   return Math.max(weightedScore, containsScore);
 }
 
 export function findExactStudentMatch(
   candidates: StudentNameCandidate[],
-  students: StudentRecord[]
+  students: StudentRecord[],
 ): StudentMatchResult | null {
   for (const candidate of candidates) {
-    const normalizedCandidate =
-      candidate.normalizedName || normalizeStudentName(candidate.name);
+    const normalizedCandidate = candidate.normalizedName || normalizeStudentName(candidate.name);
 
     if (!normalizedCandidate) continue;
 
     const matches = students.filter(
-      (student) =>
-        normalizeStudentName(student.nama) === normalizedCandidate
+      (student) => normalizeStudentName(student.nama) === normalizedCandidate,
     );
 
     if (matches.length !== 1) continue;
 
-    return {
-      student: matches[0],
-      candidate,
-      score: 1,
-    };
+    return { student: matches[0], candidate, score: 1 };
   }
 
   return null;
@@ -236,16 +213,13 @@ export function findExactStudentMatch(
 export function getFuzzyStudentCandidates(
   candidates: StudentNameCandidate[],
   students: StudentRecord[],
-  limit = 5
+  limit = 5,
 ): FuzzyStudentCandidate[] {
   const results: FuzzyStudentCandidate[] = [];
 
   for (const candidate of candidates) {
     for (const student of students) {
-      const score = calculateStudentNameSimilarity(
-        candidate.name,
-        student.nama
-      );
+      const score = calculateStudentNameSimilarity(candidate.name, student.nama);
 
       /*
        * Dua pagar:
@@ -254,20 +228,11 @@ export function getFuzzyStudentCandidates(
        */
       if (score < AI_CANDIDATE_THRESHOLD) continue;
 
-      if (
-        !hasStrongTokenRelation(
-          candidate.name,
-          student.nama
-        )
-      ) {
+      if (!hasStrongTokenRelation(candidate.name, student.nama)) {
         continue;
       }
 
-      results.push({
-        student,
-        candidate,
-        score,
-      });
+      results.push({ student, candidate, score });
     }
   }
 
@@ -281,20 +246,14 @@ export function getFuzzyStudentCandidates(
     }
   }
 
-  return [...unique.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, Math.max(1, limit));
+  return [...unique.values()].sort((a, b) => b.score - a.score).slice(0, Math.max(1, limit));
 }
 
 export function findFuzzyStudentMatch(
   candidates: StudentNameCandidate[],
-  students: StudentRecord[]
+  students: StudentRecord[],
 ): StudentMatchResult | null {
-  const ranked = getFuzzyStudentCandidates(
-    candidates,
-    students,
-    5
-  );
+  const ranked = getFuzzyStudentCandidates(candidates, students, 5);
 
   const best = ranked[0];
 
@@ -304,16 +263,9 @@ export function findFuzzyStudentMatch(
 
   const second = ranked[1];
 
-  if (
-    second &&
-    best.score - second.score < MIN_AUTO_SCORE_GAP
-  ) {
+  if (second && best.score - second.score < MIN_AUTO_SCORE_GAP) {
     return null;
   }
 
-  return {
-    student: best.student,
-    candidate: best.candidate,
-    score: best.score,
-  };
+  return { student: best.student, candidate: best.candidate, score: best.score };
 }

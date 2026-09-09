@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+
 import type { StudentRecord } from "@/types/student";
 
 interface StudentsApiSuccess {
@@ -13,9 +14,7 @@ interface StudentsApiError {
   message: string;
 }
 
-type StudentsApiResponse =
-  | StudentsApiSuccess
-  | StudentsApiError;
+type StudentsApiResponse = StudentsApiSuccess | StudentsApiError;
 
 interface UseStudentsReturn {
   students: StudentRecord[];
@@ -25,65 +24,44 @@ interface UseStudentsReturn {
 }
 
 async function fetchStudents(): Promise<StudentRecord[]> {
-  const response = await fetch("/api/students", {
-    method: "GET",
-    cache: "no-store",
-  });
+  const response = await fetch("/api/students", { method: "GET", cache: "no-store" });
 
-  const data =
-    (await response.json()) as StudentsApiResponse;
+  const data = (await response.json()) as StudentsApiResponse;
 
   if (!response.ok || !data.success) {
-    throw new Error(
-      !data.success
-        ? data.message
-        : "Gagal mengambil daftar murid."
-    );
+    throw new Error(!data.success ? data.message : "Gagal mengambil daftar murid.");
   }
 
   return data.data;
 }
 
 export function useStudents(): UseStudentsReturn {
-  const [students, setStudents] =
-    useState<StudentRecord[]>([]);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
 
-  const [loadingStudents, setLoadingStudents] =
-    useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(true);
 
-  const [studentError, setStudentError] =
-    useState("");
+  const [studentError, setStudentError] = useState("");
 
-  const applyStudentsLoad = useCallback(
-    async () => {
-      try {
-        const data = await fetchStudents();
+  const applyStudentsLoad = useCallback(async () => {
+    try {
+      const data = await fetchStudents();
 
-        setStudents(data);
-        setStudentError("");
-      } catch (error) {
-        setStudents([]);
-        setStudentError(
-          error instanceof Error
-            ? error.message
-            : "Gagal mengambil daftar murid."
-        );
-      } finally {
-        setLoadingStudents(false);
-      }
-    },
-    []
-  );
-
-  const refreshStudents = useCallback(
-    async () => {
-      setLoadingStudents(true);
+      setStudents(data);
       setStudentError("");
+    } catch (error) {
+      setStudents([]);
+      setStudentError(error instanceof Error ? error.message : "Gagal mengambil daftar murid.");
+    } finally {
+      setLoadingStudents(false);
+    }
+  }, []);
 
-      await applyStudentsLoad();
-    },
-    [applyStudentsLoad]
-  );
+  const refreshStudents = useCallback(async () => {
+    setLoadingStudents(true);
+    setStudentError("");
+
+    await applyStudentsLoad();
+  }, [applyStudentsLoad]);
 
   useEffect(() => {
     let active = true;
@@ -99,11 +77,7 @@ export function useStudents(): UseStudentsReturn {
         if (!active) return;
 
         setStudents([]);
-        setStudentError(
-          error instanceof Error
-            ? error.message
-            : "Gagal mengambil daftar murid."
-        );
+        setStudentError(error instanceof Error ? error.message : "Gagal mengambil daftar murid.");
       })
       .finally(() => {
         if (!active) return;
@@ -116,10 +90,5 @@ export function useStudents(): UseStudentsReturn {
     };
   }, []);
 
-  return {
-    students,
-    loadingStudents,
-    studentError,
-    refreshStudents,
-  };
+  return { students, loadingStudents, studentError, refreshStudents };
 }

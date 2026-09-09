@@ -1,5 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { GoogleGenAI } from "@google/genai";
 
 export async function GET() {
   try {
@@ -7,8 +7,8 @@ export async function GET() {
 
     if (!apiKey) {
       return NextResponse.json(
-        { status: 'error', message: 'GEMINI_API_KEY belum dipasang di .env.local' },
-        { status: 500 }
+        { status: "error", message: "GEMINI_API_KEY belum dipasang di .env.local" },
+        { status: 500 },
       );
     }
 
@@ -17,21 +17,18 @@ export async function GET() {
 
     // Menggunakan model terbaru yang tersedia dari daftar Anda
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: "gemini-3.5-flash",
       contents: 'Halo Gemini! Tolong balas dengan kata: "Koneksi Sukses 100%"',
     });
 
     return NextResponse.json({
-      status: 'success',
-      message: 'Koneksi ke Gemini API Berhasil!',
+      status: "success",
+      message: "Koneksi ke Gemini API Berhasil!",
       response: response.text,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Gagal terhubung ke Gemini API';
-    
-    return NextResponse.json(
-      { status: 'error', message: errorMessage },
-      { status: 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : "Gagal terhubung ke Gemini API";
+
+    return NextResponse.json({ status: "error", message: errorMessage }, { status: 500 });
   }
 }

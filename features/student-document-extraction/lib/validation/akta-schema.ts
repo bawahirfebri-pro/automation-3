@@ -10,6 +10,4 @@ export const AktaResultSchema = z.object({
   nama_ibu: z.string().default(""),
 });
 
-export type AktaSchemaResult = z.infer<
-  typeof AktaResultSchema
->;
+export type AktaSchemaResult = z.infer<typeof AktaResultSchema>;
