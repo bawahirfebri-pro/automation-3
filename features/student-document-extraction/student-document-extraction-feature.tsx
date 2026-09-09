@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import DashboardContent from "@/components/dashboard/dashboard-content";
 import DashboardLayout from "@/components/dashboard/dashboard-layout";
+import StudentDomainHeader from "@/components/dashboard/student-domain-header";
 
 import { useSaveFeedback } from "@/hooks/use-save-feedback";
 import { useStudents } from "@/hooks/use-students";
@@ -17,7 +18,8 @@ import { normalizeStudentName } from "@/lib/students/student-matcher";
 import { clearStudentUrl, setStudentUrl } from "@/lib/students/student-url";
 
 import DocumentResultSection from "@/features/student-document-extraction/components/document-result-section";
-import StudentPanel from "@/features/student-document-extraction/components/student-panel";
+import StudentDocumentWorkflow from "@/features/student-document-extraction/components/student-document-workflow";
+import StudentSidebar from "@/features/student-document-extraction/components/student-sidebar";
 import UploadSection from "@/features/student-document-extraction/components/upload-section";
 
 import { useDocumentExtraction } from "@/features/student-document-extraction/hooks/use-document-extraction";
@@ -1195,66 +1197,76 @@ export default function StudentDocumentExtractionFeature() {
   };
 
   return (
-    <DashboardLayout>
-      <DashboardContent>
-        <section className="col-span-12 h-full lg:col-span-6">
-          <UploadSection
-            files={files}
-            displayFiles={displayFiles}
-            fileStudentMatches={fileStudentMatches}
-            manualTasks={manualTasksByFile}
-            manualTaskResolutions={manualTaskResolutions}
-            students={students}
-            processedFileKeys={processedFileKeys}
-            aiMatchingFileKeys={aiMatchingFileKeys}
-            isExtracting={isExtracting}
-            errorMsg={errorMsg}
-            conflictMsg={sessionConflict}
-            duplicateMsg={duplicateDocumentMsg}
-            sessionReady={sessionReady}
-            hasPendingFiles={hasPendingFiles}
-            onFileChange={handleUploadFileChange}
-            onRemoveFile={handleRemoveUploadFile}
-            onResetSession={handleResetUploadSession}
-            onResolveStudent={handleResolveFileStudent}
-            onIgnoreStudent={handleIgnoreFileStudent}
-            filenameMatchIssues={filenameMatchIssues}
-            failedFileKeys={failedFileKeys}
-            isPreprocessing={isPreprocessing}
-          />
-        </section>
-
-        <StudentPanel
-          key={
-            files.length > 0 && sessionStudents.length === 0
-              ? "no-active-student"
-              : "active-student"
-          }
+    <DashboardLayout
+      activeDomain="students"
+      rightSidebar={
+        <StudentSidebar
           students={students}
-          history={history}
           loading={loadingStudents}
           error={studentError}
           activeRowIndex={selectedStudentRow}
           priorityRowIndexes={detectedStudentRowIndexes}
-          savingStudentId={savingStudentId}
-          saveFeedback={saveFeedback}
           onSelect={handleSelectStudent}
           onRefresh={refreshStudents}
-          onSave={handleSaveStudent}
-          onSaveAll={handleSaveAllStudents}
-          savingAll={savingAll}
         />
+      }
+    >
+      <div className="-m-4 flex min-h-full flex-col">
+        <StudentDomainHeader />
 
-        <DocumentResultSection
-          akta={activeAkta}
-          kk={activeKk}
-          modelUsedAkta={activeModelUsedAkta}
-          modelUsedKk={activeModelUsedKk}
-          studentName={activeStudentName}
-          isLoading={loadingStudentDetail}
-          isAiMatching={isAiMatching}
-        />
-      </DashboardContent>
+        <div className="min-h-0 flex-1 p-4">
+          <DashboardContent>
+            <section className="col-span-12 lg:col-span-6">
+              <UploadSection
+                files={files}
+                displayFiles={displayFiles}
+                fileStudentMatches={fileStudentMatches}
+                manualTasks={manualTasksByFile}
+                manualTaskResolutions={manualTaskResolutions}
+                students={students}
+                processedFileKeys={processedFileKeys}
+                aiMatchingFileKeys={aiMatchingFileKeys}
+                isExtracting={isExtracting}
+                errorMsg={errorMsg}
+                conflictMsg={sessionConflict}
+                duplicateMsg={duplicateDocumentMsg}
+                sessionReady={sessionReady}
+                hasPendingFiles={hasPendingFiles}
+                onFileChange={handleUploadFileChange}
+                onRemoveFile={handleRemoveUploadFile}
+                onResetSession={handleResetUploadSession}
+                onResolveStudent={handleResolveFileStudent}
+                onIgnoreStudent={handleIgnoreFileStudent}
+                filenameMatchIssues={filenameMatchIssues}
+                failedFileKeys={failedFileKeys}
+                isPreprocessing={isPreprocessing}
+              />
+            </section>
+
+            <StudentDocumentWorkflow
+              students={students}
+              history={history}
+              activeRowIndex={selectedStudentRow}
+              priorityRowIndexes={detectedStudentRowIndexes}
+              savingStudentId={savingStudentId}
+              saveFeedback={saveFeedback}
+              onSave={handleSaveStudent}
+              onSaveAll={handleSaveAllStudents}
+              savingAll={savingAll}
+            />
+
+            <DocumentResultSection
+              akta={activeAkta}
+              kk={activeKk}
+              modelUsedAkta={activeModelUsedAkta}
+              modelUsedKk={activeModelUsedKk}
+              studentName={activeStudentName}
+              isLoading={loadingStudentDetail}
+              isAiMatching={isAiMatching}
+            />
+          </DashboardContent>
+        </div>
+      </div>
     </DashboardLayout>
   );
 }

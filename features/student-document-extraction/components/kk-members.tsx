@@ -39,7 +39,7 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
   if (isLoading) {
     return (
       <section className="col-span-12">
-        <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-gray-200 bg-white">
+        <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white">
           <div className="flex flex-col items-center px-6 text-center">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
               <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
@@ -58,7 +58,7 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
   if (!data) {
     return (
       <section className="col-span-12">
-        <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white">
+        <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white">
           <div className="px-6 text-center">
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
               <svg
@@ -97,8 +97,8 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
 
   return (
     <section className="col-span-12">
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Anggota Keluarga</h2>
 
@@ -120,7 +120,7 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
         </div>
 
         {anggotaKeluarga.length === 0 ? (
-          <div className="px-5 py-10 text-center">
+          <div className="px-4 py-8 text-center">
             <p className="text-sm font-medium text-gray-500">
               Tidak ada anggota keluarga yang berhasil dibaca.
             </p>

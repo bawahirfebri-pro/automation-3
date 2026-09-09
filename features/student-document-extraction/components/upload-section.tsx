@@ -397,7 +397,7 @@ export default function UploadSection({
   };
 
   return (
-    <div className="flex h-[516px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
+    <div className="flex h-[516px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
       <input
         ref={fileInputRef}
         type="file"
@@ -407,7 +407,7 @@ export default function UploadSection({
         disabled={isBusy}
         className="hidden"
       />
-      <div className="flex min-h-[73px] items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+     <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
             <svg
@@ -433,7 +433,7 @@ export default function UploadSection({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col p-5">
+      <div className="flex min-h-0 flex-1 flex-col p-4">
         {uploadPickerVisible && (
           <>
             {compactQueueMode && (
@@ -478,7 +478,7 @@ export default function UploadSection({
             >
               {isBusy ? (
                 <>
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
                     <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
                   </div>
                   <span className="text-sm font-semibold text-gray-700">
@@ -493,7 +493,7 @@ export default function UploadSection({
                 </>
               ) : (
                 <>
-                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm ring-1 ring-gray-100 transition-colors group-hover:text-blue-500">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 text-gray-400 transition-colors group-hover:text-gray-700">
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -833,7 +833,7 @@ export default function UploadSection({
         )}
 
         {conflictMsg && (
-          <div className="mt-4 shrink-0 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+          <div className="mt-4 shrink-0 rounded-lg border border-red-100 bg-red-50 px-4 py-3">
             <div className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 gap-2">
                 <span className="text-xs font-semibold text-red-500">!</span>
@@ -857,7 +857,7 @@ export default function UploadSection({
         )}
 
         {duplicateMsg && !conflictMsg && (
-          <div className="mt-4 shrink-0 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+          <div className="mt-4 shrink-0 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
             <div className="flex gap-2">
               <span className="text-xs font-semibold text-amber-600">!</span>
               <div>
@@ -869,7 +869,7 @@ export default function UploadSection({
         )}
 
         {errorMsg && (
-          <div className="mt-4 shrink-0 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mt-4 shrink-0 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
             <div className="flex gap-2">
               <span>!</span>
               <span className="whitespace-pre-line">{errorMsg}</span>

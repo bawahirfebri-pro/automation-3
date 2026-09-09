@@ -12,7 +12,7 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
   if (isLoading) {
     return (
       <section className="col-span-12 lg:col-span-6">
-        <div className="flex min-h-[408px] items-center justify-center rounded-2xl border border-gray-200 bg-white">
+        <div className="flex min-h-[408px] items-center justify-center rounded-xl border border-gray-200 bg-white">
           <div className="flex flex-col items-center px-6 text-center">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
               <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
@@ -32,7 +32,7 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
   if (!data) {
     return (
       <section className="col-span-12 lg:col-span-6">
-        <div className="flex min-h-[408px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white">
+        <div className="flex min-h-[408px] items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white">
           <div className="px-6 text-center">
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
               <svg
@@ -78,8 +78,8 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
 
   return (
     <section className="col-span-12 lg:col-span-6">
-      <div className="flex min-h-[408px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        <div className="flex min-h-[73px] items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+      <div className="flex min-h-[408px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
               <svg
@@ -110,7 +110,7 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
           </div>
 
           {modelUsed && (
-            <div className="inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-100 bg-violet-50 px-2 py-1 text-[10px] font-medium text-violet-700">
+            <div className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-500">
               <span className="text-[9px]">✦</span>
               <span>AI</span>
               <span className="text-violet-300">·</span>
