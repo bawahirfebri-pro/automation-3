@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
+import type { ExtractionHistoryItem } from "@/types/extraction-history";
 import type { StudentRecord } from "@/types/student";
 
 interface StudentSidebarProps {
   students: StudentRecord[];
+  history: ExtractionHistoryItem[];
   loading: boolean;
   error: string;
   activeRowIndex?: number | null;
   priorityRowIndexes?: number[];
+  footer?: ReactNode;
   onSelect: (student: StudentRecord) => void;
   onRefresh: () => void | Promise<void>;
 }
@@ -30,18 +33,45 @@ function formatStudentName(value: string): string {
     .join(" ");
 }
 
+function getStudentInitials(value: string): string {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+}
+
+type DocumentBadgeStatus = "stored" | "ready" | "missing";
+
+function getDocumentBadgeStatus(stored: boolean, availableLocally: boolean): DocumentBadgeStatus {
+  if (stored) return "stored";
+  if (availableLocally) return "ready";
+  return "missing";
+}
+
+function getDocumentBadgeClass(status: DocumentBadgeStatus): string {
+  if (status === "stored") return "bg-emerald-50 text-emerald-600";
+  if (status === "ready") return "bg-amber-50 text-amber-600";
+  return "bg-gray-100 text-gray-400";
+}
+
 export default function StudentSidebar({
   students,
+  history,
   loading,
   error,
   activeRowIndex,
   priorityRowIndexes = [],
+  footer,
   onSelect,
   onRefresh,
 }: StudentSidebarProps) {
   const [search, setSearch] = useState("");
   const [selectedKelas, setSelectedKelas] = useState("");
   const [selectedRombel, setSelectedRombel] = useState("");
+  const hasActiveFilter = Boolean(search || selectedKelas || selectedRombel);
   const [tabSelection, setTabSelection] = useState<{ detectedKey: string; tab: StudentTab }>({
     detectedKey: "",
     tab: "all",
@@ -50,6 +80,10 @@ export default function StudentSidebar({
   const studentRefs = useRef<Map<number, HTMLLIElement>>(new Map());
   const previousDetectedKeyRef = useRef("");
   const lastAutoScrolledKeyRef = useRef("");
+  const historyMap = useMemo(
+    () => new Map(history.map((item) => [normalize(item.studentName), item])),
+    [history],
+  );
 
   const detectedRowIndexes = useMemo(
     () => [...new Set(priorityRowIndexes.filter(Number.isInteger))],
@@ -165,6 +199,12 @@ export default function StudentSidebar({
     setSelectedRombel("");
   };
 
+  const handleResetFilters = () => {
+    setSearch("");
+    setSelectedKelas("");
+    setSelectedRombel("");
+  };
+
   const handleTabChange = (tab: StudentTab) => {
     setTabSelection({ detectedKey, tab });
     setSearch("");
@@ -173,28 +213,38 @@ export default function StudentSidebar({
   };
 
   return (
-    <aside className="flex h-screen w-[300px] shrink-0 flex-col border-l border-gray-200 bg-white">
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 px-4">
+    <aside className="flex h-full w-[304px] shrink-0 flex-col border-l border-gray-200/70 bg-[#FBFBFB]">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200/70 px-3">
         <div>
-          <h2 className="text-[13px] font-semibold text-gray-900">
+          <h2 className="text-[12px] font-medium tracking-[-0.01em] text-gray-800">
             {showingDetectedTab ? "Murid Terdeteksi" : "Daftar Murid"}
           </h2>
-          <p className="mt-0.5 text-[11px] text-gray-400">{visibleStudents.length} murid</p>
+
+          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-gray-400">
+            <span>{visibleStudents.length} murid</span>
+
+            {!showingDetectedTab && visibleStudents.length !== students.length && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span>dari {students.length}</span>
+              </>
+            )}
+          </div>
         </div>
 
         <button
           type="button"
           onClick={() => void onRefresh()}
           disabled={loading}
-          title="Refresh daftar murid"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label="Refresh daftar murid"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-200/40 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <svg
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.8"
-            className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            className={`h-4 w-4 transition-transform ${loading ? "animate-spin" : ""}`}
           >
             <path
               strokeLinecap="round"
@@ -211,12 +261,12 @@ export default function StudentSidebar({
       </div>
 
       {hasMultipleDetected && (
-        <div className="shrink-0 border-b border-gray-100 px-3 pt-2.5">
+        <div className="shrink-0 border-b border-gray-200/70 px-3 pt-2">
           <div className="flex gap-4">
             <button
               type="button"
               onClick={() => handleTabChange("detected")}
-              className={`relative pb-2.5 text-[12px] transition-colors ${
+              className={`relative pb-2 text-[11px] transition-colors ${
                 activeTab === "detected"
                   ? "font-medium text-gray-900"
                   : "text-gray-400 hover:text-gray-700"
@@ -232,7 +282,7 @@ export default function StudentSidebar({
             <button
               type="button"
               onClick={() => handleTabChange("all")}
-              className={`relative pb-2.5 text-[12px] transition-colors ${
+              className={`relative pb-2 text-[11px] transition-colors ${
                 activeTab === "all"
                   ? "font-medium text-gray-900"
                   : "text-gray-400 hover:text-gray-700"
@@ -248,14 +298,14 @@ export default function StudentSidebar({
       )}
 
       {!showingDetectedTab && (
-        <div className="shrink-0 border-b border-gray-100 p-3">
+        <div className="shrink-0 border-b border-gray-200/70 px-3 py-2.5">
           <div className="relative">
             <svg
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="1.8"
-              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400"
+              className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
             >
               <circle cx="11" cy="11" r="6.5" />
               <path strokeLinecap="round" d="m16 16 4 4" />
@@ -266,16 +316,34 @@ export default function StudentSidebar({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Cari nama atau NIK..."
-              className="h-9 w-full rounded-lg border border-gray-200 bg-white pr-3 pl-9 text-[12px] text-gray-800 transition-colors outline-none placeholder:text-gray-400 focus:border-gray-300"
+              className="h-8 w-full rounded-md border border-gray-200 bg-white pr-8 pl-8 text-[11px] text-gray-800 transition-colors outline-none placeholder:text-gray-400 focus:border-gray-300"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Hapus pencarian"
+                className="absolute top-1/2 right-2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-gray-300 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  className="h-3 w-3"
+                >
+                  <path strokeLinecap="round" d="m6 6 8 8M14 6l-8 8" />
+                </svg>
+              </button>
+            )}
           </div>
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-1.5 flex gap-1.5">
             <div className="relative min-w-0 flex-1">
               <select
                 value={selectedKelas}
                 onChange={(event) => handleKelasChange(event.target.value)}
-                className="h-9 w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 pr-8 text-[12px] text-gray-600 transition-colors outline-none hover:bg-gray-50 focus:border-gray-300"
+                className="h-8 w-full appearance-none rounded-md border border-gray-200 bg-white px-2.5 pr-7 text-[11px] text-gray-600 transition-colors outline-none hover:bg-gray-50 focus:border-gray-300"
               >
                 <option value="">Kelas</option>
                 {kelasOptions.map((kelas) => (
@@ -290,7 +358,7 @@ export default function StudentSidebar({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.7"
-                className="pointer-events-none absolute top-1/2 right-2.5 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+                className="pointer-events-none absolute top-1/2 right-2 h-3 w-3 -translate-y-1/2 text-gray-400"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="m6 8 4 4 4-4" />
               </svg>
@@ -300,7 +368,7 @@ export default function StudentSidebar({
               <select
                 value={selectedRombel}
                 onChange={(event) => setSelectedRombel(event.target.value)}
-                className="h-9 w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 pr-8 text-[12px] text-gray-600 transition-colors outline-none hover:bg-gray-50 focus:border-gray-300"
+                className="h-8 w-full appearance-none rounded-md border border-gray-200 bg-white px-2.5 pr-7 text-[11px] text-gray-600 transition-colors outline-none hover:bg-gray-50 focus:border-gray-300"
               >
                 <option value="">Rombel</option>
                 {rombelOptions.map((rombel) => (
@@ -315,12 +383,23 @@ export default function StudentSidebar({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.7"
-                className="pointer-events-none absolute top-1/2 right-2.5 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+                className="pointer-events-none absolute top-1/2 right-2 h-3 w-3 -translate-y-1/2 text-gray-400"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="m6 8 4 4 4-4" />
               </svg>
             </div>
           </div>
+          {hasActiveFilter && (
+            <div className="mt-1.5 flex justify-end">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-[9px] text-gray-400 transition-colors hover:text-gray-700"
+              >
+                Reset filter
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -360,11 +439,19 @@ export default function StudentSidebar({
           </div>
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto py-1">
-          <ul>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 py-1.5">
+          <ul className="space-y-0.5">
             {visibleStudents.map((student) => {
               const isActive = activeRowIndex === student.rowIndex;
               const isDetected = detectedSet.has(student.rowIndex);
+              const localItem = historyMap.get(normalize(student.nama));
+
+              const kkStatus = getDocumentBadgeStatus(student.kkComplete, Boolean(localItem?.kk));
+
+              const aktaStatus = getDocumentBadgeStatus(
+                student.aktaComplete,
+                Boolean(localItem?.akta),
+              );
 
               return (
                 <li
@@ -377,26 +464,26 @@ export default function StudentSidebar({
                   <button
                     type="button"
                     onClick={() => onSelect(student)}
-                    className={`relative flex w-full items-center px-4 py-2.5 text-left transition-colors ${
-                      isActive ? "bg-gray-100" : "hover:bg-gray-50"
+                    className={`flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors ${
+                      isActive ? "bg-gray-200/50" : "hover:bg-gray-200/30"
                     }`}
                   >
-                    {isActive && (
-                      <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-gray-900" />
-                    )}
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200/60 text-[10px] font-medium tracking-[-0.01em] text-gray-600">
+                      {getStudentInitials(student.nama)}
+                    </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <p
-                          className={`truncate text-[12px] ${
-                            isActive ? "font-medium text-gray-900" : "font-normal text-gray-700"
+                          className={`min-w-0 flex-1 truncate text-[12px] ${
+                            isActive ? "font-medium text-gray-900" : "font-normal text-gray-600"
                           }`}
                         >
                           {formatStudentName(student.nama)}
                         </p>
 
-                        {isDetected && (
-                          <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500">
+                        {isDetected && !showingDetectedTab && (
+                          <span className="shrink-0 rounded-md bg-gray-200/50 px-1.5 py-0.5 text-[9px] font-normal text-gray-500">
                             Terdeteksi
                           </span>
                         )}
@@ -407,6 +494,24 @@ export default function StudentSidebar({
                         {student.rombel ? ` · ${student.rombel}` : ""}
                       </p>
                     </div>
+
+                    <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                      <span
+                        className={`flex h-5 min-w-[26px] items-center justify-center rounded-md px-1.5 text-[9px] font-medium ${getDocumentBadgeClass(
+                          kkStatus,
+                        )}`}
+                      >
+                        KK
+                      </span>
+
+                      <span
+                        className={`flex h-5 min-w-[34px] items-center justify-center rounded-md px-1.5 text-[9px] font-medium ${getDocumentBadgeClass(
+                          aktaStatus,
+                        )}`}
+                      >
+                        Akta
+                      </span>
+                    </div>
                   </button>
                 </li>
               );
@@ -414,6 +519,8 @@ export default function StudentSidebar({
           </ul>
         </div>
       )}
+
+      {footer}
     </aside>
   );
 }

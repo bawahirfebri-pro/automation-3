@@ -110,9 +110,9 @@ export default function StudentDocumentWorkflow({
   return (
     <section className="col-span-12 lg:col-span-6">
       <div className="flex h-[516px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="flex min-h-16 items-center justify-between gap-4 border-b border-gray-100 px-4">
+        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-200/70 px-4 py-3">
           <div className="min-w-0">
-            <h2 className="truncate text-[13px] font-semibold text-gray-900">
+            <h2 className="truncate text-[13px] font-medium tracking-[-0.01em] text-gray-900">
               {activeStudent.nama}
             </h2>
             <p className="mt-0.5 text-[11px] text-gray-400">
@@ -126,7 +126,7 @@ export default function StudentDocumentWorkflow({
               type="button"
               onClick={() => void onSaveAll?.(detectedStudentsReadyToSave)}
               disabled={savingAll || Boolean(savingStudentId)}
-              className="h-8 shrink-0 rounded-lg border border-gray-200 bg-white px-3 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300"
+              className="h-8 shrink-0 rounded-md border border-gray-200 bg-white px-2.5 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-300"
             >
               {savingAll ? "Menyimpan..." : `Simpan Semua (${detectedStudentsReadyToSave.length})`}
             </button>

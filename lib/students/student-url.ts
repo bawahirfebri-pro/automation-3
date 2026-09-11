@@ -1,11 +1,20 @@
+const STUDENT_PATH = "/students";
 const STUDENT_DOCUMENT_EXTRACTION_PATH = "/students/document-extraction";
+
+export type StudentRouteView = "profile";
 
 export function getNikFromPathname(pathname: string): string {
   return (
     pathname.match(/^\/students\/document-extraction\/(\d{16})\/?$/)?.[1] ??
+    pathname.match(/^\/students\/(\d{16})\/?$/)?.[1] ??
     pathname.match(/^\/(\d{16})\/?$/)?.[1] ??
     ""
   );
+}
+
+export function getStudentRouteView(pathname: string): StudentRouteView {
+  void pathname;
+  return "profile";
 }
 
 export function setStudentUrl(nik: string | null | undefined) {
@@ -14,7 +23,7 @@ export function setStudentUrl(nik: string | null | undefined) {
   const normalizedNik = (nik ?? "").replace(/\D/g, "");
 
   const nextPath = /^\d{16}$/.test(normalizedNik)
-    ? `${STUDENT_DOCUMENT_EXTRACTION_PATH}/${normalizedNik}`
+    ? `${STUDENT_PATH}/${normalizedNik}`
     : STUDENT_DOCUMENT_EXTRACTION_PATH;
 
   if (window.location.pathname !== nextPath) {

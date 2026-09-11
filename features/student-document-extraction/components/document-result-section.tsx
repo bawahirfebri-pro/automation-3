@@ -25,19 +25,17 @@ export default function DocumentResultSection({
   isAiMatching,
 }: DocumentResultSectionProps) {
   return (
-    <section className="col-span-12">
-      <div className="grid grid-cols-12 gap-4">
-        <AktaPanel data={akta} modelUsed={modelUsedAkta} isLoading={isLoading} />
-
+    <section className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <KkSummary data={kk} modelUsed={modelUsedKk} isLoading={isLoading} />
-
-        <KkMembers data={kk} studentName={studentName} isLoading={isLoading} />
+        <AktaPanel data={akta} modelUsed={modelUsedAkta} isLoading={isLoading} />
       </div>
+
+      <KkMembers data={kk} studentName={studentName} isLoading={isLoading} />
 
       {(isLoading || isAiMatching) && (
         <div className="pointer-events-none fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 shadow-sm">
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
-
           {isAiMatching ? "Mencocokkan nama murid..." : "Memuat detail murid..."}
         </div>
       )}

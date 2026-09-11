@@ -41,7 +41,7 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
       <section className="col-span-12">
         <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white">
           <div className="flex flex-col items-center px-6 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
               <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
             </div>
 
@@ -98,21 +98,18 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
   return (
     <section className="col-span-12">
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-200/70 px-4 py-3">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Anggota Keluarga</h2>
+            <h2 className="text-[13px] font-medium tracking-[-0.01em] text-gray-900">
+              Anggota Keluarga
+            </h2>
 
             <p className="mt-0.5 text-xs text-gray-500">
-              {anggotaKeluarga.length} anggota terdeteksi
+              {anggotaKeluarga.length} anggota keluarga
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-1 text-[11px] text-gray-400 md:inline-flex">
-              Geser tabel
-              <span aria-hidden="true">→</span>
-            </span>
-
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
               {anggotaKeluarga.length} anggota
             </span>
@@ -126,28 +123,16 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
             </p>
           </div>
         ) : (
-          <div className="max-h-[520px] overflow-auto">
-            <table className="w-full min-w-[1400px] text-left text-sm">
-              <thead className="sticky top-0 z-20 bg-gray-50/95 text-[10px] font-semibold tracking-wide text-gray-400 uppercase backdrop-blur">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-left">
+              <thead className="bg-gray-50 text-[9px] font-medium tracking-[0.08em] text-gray-400 uppercase">
                 <tr>
-                  <th className="sticky left-0 z-30 w-[150px] min-w-[150px] border-b border-gray-100 bg-gray-50 px-4 py-3 whitespace-nowrap">
-                    NIK
-                  </th>
-                  <th className="sticky left-[150px] z-30 min-w-[210px] border-b border-gray-100 bg-gray-50 px-4 py-3 shadow-[4px_0_8px_-6px_rgba(0,0,0,0.25)]">
-                    Nama Lengkap
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3 text-center">J.K.</th>
-                  <th className="border-b border-gray-100 px-4 py-3">Tempat Lahir</th>
-                  <th className="border-b border-gray-100 px-4 py-3 whitespace-nowrap">
-                    Tgl Lahir
-                  </th>
-                  <th className="border-b border-gray-100 px-4 py-3 text-center">Goldar</th>
-                  <th className="border-b border-gray-100 px-4 py-3">Agama</th>
-                  <th className="border-b border-gray-100 px-4 py-3">Pendidikan</th>
-                  <th className="border-b border-gray-100 px-4 py-3">Pekerjaan</th>
-                  <th className="border-b border-gray-100 px-4 py-3">Status</th>
-                  <th className="border-b border-gray-100 px-4 py-3">Nama Ayah</th>
-                  <th className="border-b border-gray-100 px-4 py-3">Nama Ibu</th>
+                  <th className="px-4 py-2.5">Nama</th>
+                  <th className="px-4 py-2.5">Hubungan</th>
+                  <th className="px-4 py-2.5 text-center">JK</th>
+                  <th className="px-4 py-2.5">Tempat / Tanggal Lahir</th>
+                  <th className="px-4 py-2.5">Pendidikan</th>
+                  <th className="px-4 py-2.5">Pekerjaan</th>
                 </tr>
               </thead>
 
@@ -157,40 +142,38 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
                   const isTargetStudent =
                     normalizedStudentName !== "" && normalizedMemberName === normalizedStudentName;
 
-                  const stickyBackground = isTargetStudent ? "bg-blue-50" : "bg-white";
-
                   return (
                     <tr
                       key={`${anggota.nik}-${index}`}
-                      className={
-                        isTargetStudent
-                          ? "bg-blue-50/70 transition-colors hover:bg-blue-100/60"
-                          : "transition-colors hover:bg-gray-50/80"
-                      }
+                      className={isTargetStudent ? "bg-blue-50/60" : "hover:bg-gray-50/70"}
                     >
-                      <td
-                        className={`sticky left-0 z-10 w-[150px] min-w-[150px] px-4 py-3 font-mono text-xs whitespace-nowrap text-gray-500 ${stickyBackground}`}
-                      >
-                        {anggota.nik || "-"}
+                      <td className="px-4 py-3">
+                        <div className="min-w-[180px]">
+                          <p
+                            className={`text-[11px] ${
+                              isTargetStudent
+                                ? "font-semibold text-blue-900"
+                                : "font-medium text-gray-800"
+                            }`}
+                          >
+                            {formatTeksTampilan(anggota.nama_lengkap)}
+                          </p>
+
+                          <p className="mt-0.5 font-mono text-[9px] text-gray-400">
+                            {anggota.nik || "-"}
+                          </p>
+                        </div>
                       </td>
 
-                      <td
-                        className={`sticky left-[150px] z-10 min-w-[210px] px-4 py-3 shadow-[4px_0_8px_-6px_rgba(0,0,0,0.25)] ${stickyBackground}`}
-                      >
-                        <span
-                          className={
-                            isTargetStudent
-                              ? "font-semibold text-blue-900"
-                              : "font-medium text-gray-900"
-                          }
-                        >
-                          {formatTeksTampilan(anggota.nama_lengkap)}
+                      <td className="px-4 py-3">
+                        <span className="inline-flex rounded-md bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-600">
+                          {formatTeksTampilan(anggota.status_hubungan_dalam_keluarga)}
                         </span>
                       </td>
 
                       <td className="px-4 py-3 text-center">
                         <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${getJenisKelaminBadgeClass(
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-semibold ${getJenisKelaminBadgeClass(
                             anggota.jenis_kelamin,
                           )}`}
                         >
@@ -198,42 +181,21 @@ export default function KkMembers({ data, studentName, isLoading = false }: KkMe
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 text-gray-600">
-                        {formatTeksTampilan(anggota.tempat_lahir)}
+                      <td className="px-4 py-3">
+                        <p className="text-[11px] text-gray-700">
+                          {formatTeksTampilan(anggota.tempat_lahir)}
+                        </p>
+                        <p className="mt-0.5 font-mono text-[9px] text-gray-400">
+                          {anggota.tanggal_lahir || "-"}
+                        </p>
                       </td>
 
-                      <td className="px-4 py-3 font-mono text-xs whitespace-nowrap text-gray-500">
-                        {anggota.tanggal_lahir || "-"}
-                      </td>
-
-                      <td className="px-4 py-3 text-center font-semibold text-gray-700">
-                        {anggota.golongan_darah || "-"}
-                      </td>
-
-                      <td className="px-4 py-3 text-gray-600">
-                        {formatTeksTampilan(anggota.agama)}
-                      </td>
-
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-[11px] text-gray-600">
                         {formatTeksTampilan(anggota.pendidikan)}
                       </td>
 
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-[11px] text-gray-600">
                         {formatTeksTampilan(anggota.jenis_pekerjaan)}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium whitespace-nowrap text-blue-700">
-                          {formatTeksTampilan(anggota.status_hubungan_dalam_keluarga)}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3 text-gray-600">
-                        {formatTeksTampilan(anggota.nama_ayah)}
-                      </td>
-
-                      <td className="px-4 py-3 text-gray-600">
-                        {formatTeksTampilan(anggota.nama_ibu)}
                       </td>
                     </tr>
                   );

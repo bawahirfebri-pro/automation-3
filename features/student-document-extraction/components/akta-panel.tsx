@@ -14,7 +14,7 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
       <section className="col-span-12 lg:col-span-6">
         <div className="flex min-h-[408px] items-center justify-center rounded-xl border border-gray-200 bg-white">
           <div className="flex flex-col items-center px-6 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
               <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
             </div>
 
@@ -78,10 +78,10 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
 
   return (
     <section className="col-span-12 lg:col-span-6">
-      <div className="flex min-h-[408px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-200/70 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -103,9 +103,11 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
             </div>
 
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-gray-900">Informasi Akta Kelahiran</h2>
+              <h2 className="text-[13px] font-medium tracking-[-0.01em] text-gray-900">
+                Akta Kelahiran
+              </h2>
 
-              <p className="text-xs text-gray-500">Data hasil ekstraksi dokumen</p>
+              <p className="text-xs text-gray-500">Data kependudukan murid</p>
             </div>
           </div>
 
@@ -120,7 +122,7 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
         </div>
 
         <div className="flex flex-1 p-4">
-          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-gray-100 bg-gray-50/80">
+          <div className="w-full overflow-hidden rounded-lg border border-gray-100 bg-gray-50/70">
             <div className="grid grid-cols-1 gap-px bg-gray-100 sm:grid-cols-2">
               {fields.map((field) => (
                 <div
@@ -141,8 +143,6 @@ export default function AktaPanel({ data, modelUsed, isLoading = false }: AktaPa
                 </div>
               ))}
             </div>
-
-            <div className="flex-1 bg-gray-50/80" />
           </div>
         </div>
       </div>

@@ -19,7 +19,7 @@ const navItems: NavItem[] = [
     label: "Keuangan",
     available: false,
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -78,20 +78,27 @@ const navItems: NavItem[] = [
 
 export default function DashboardSidebar({ activeDomain }: DashboardSidebarProps) {
   return (
-    <aside className="relative z-40 hidden h-screen w-[72px] shrink-0 lg:block">
-      <div className="group absolute inset-y-0 left-0 flex w-[72px] flex-col overflow-hidden border-r border-gray-200 bg-white transition-[width,box-shadow] duration-200 ease-out hover:w-[232px] hover:shadow-lg hover:shadow-black/5">
-        <div className="flex h-16 shrink-0 items-center border-b border-gray-100 px-[18px]">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-900">
+    <aside className="relative z-40 hidden h-screen w-16 shrink-0 lg:block">
+      <div className="group absolute inset-y-0 left-0 flex w-16 flex-col overflow-hidden border-r border-gray-200/70 bg-[#FBFBFB] transition-[width] duration-200 ease-out will-change-[width] hover:w-[216px]">
+        <div className="flex h-14 shrink-0 items-center px-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-[10px] font-semibold tracking-tight text-gray-800">
             TU
           </div>
 
-          <div className="ml-3 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <p className="text-sm font-medium text-gray-900">Administrasi TU</p>
-            <p className="mt-0.5 text-[11px] text-gray-400">Workspace sekolah</p>
+          <div className="ml-2.5 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-hover:delay-75">
+            <p className="text-[12px] font-medium tracking-[-0.01em] text-gray-800">
+              Administrasi TU
+            </p>
+            <p className="text-[10px] text-gray-400">Workspace sekolah</p>
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 px-3 py-3">
+        <nav className="flex flex-1 flex-col gap-0.5 px-2.5 py-2">
+          <div className="h-5 overflow-hidden">
+            <span className="ml-2 block text-[9px] font-medium tracking-[0.08em] whitespace-nowrap text-gray-400 uppercase opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              Utama
+            </span>
+          </div>
           {navItems.map((item) => {
             const isActive = item.id === activeDomain;
 
@@ -100,23 +107,20 @@ export default function DashboardSidebar({ activeDomain }: DashboardSidebarProps
                 key={item.id}
                 type="button"
                 disabled={!item.available}
-                title={!item.available ? `${item.label} — belum tersedia` : item.label}
-                className={`relative flex h-10 w-full items-center rounded-lg transition-colors ${
+                className={`relative flex h-9 w-full items-center rounded-lg transition-colors ${
                   isActive
-                    ? "bg-gray-100 text-gray-900"
+                    ? "bg-gray-200/50 text-gray-900"
                     : item.available
-                      ? "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                      : "cursor-default text-gray-300"
+                      ? "text-gray-500 hover:bg-gray-200/30 hover:text-gray-900"
+                      : "cursor-default text-gray-400/70"
                 }`}
               >
-                {isActive && (
-                  <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-gray-900" />
-                )}
-
-                <span className="ml-2.5 h-[18px] w-[18px] shrink-0">{item.icon}</span>
+                <span className="ml-[13px] flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                  {item.icon}
+                </span>
 
                 <span
-                  className={`ml-3.5 text-[13px] whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100 ${
+                  className={`ml-3 text-[12px] tracking-[-0.01em] whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-hover:delay-75 ${
                     isActive ? "font-medium" : "font-normal"
                   }`}
                 >

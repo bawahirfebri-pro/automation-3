@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import DashboardHeader from "@/components/dashboard/dashboard-header";
 import type { DashboardDomain } from "@/components/dashboard/dashboard-sidebar";
 import DashboardSidebar from "@/components/dashboard/dashboard-sidebar";
 
@@ -18,9 +19,15 @@ export default function DashboardLayout({
     <div className="flex h-screen overflow-hidden bg-[#FAFAFA]">
       <DashboardSidebar activeDomain={activeDomain} />
 
-      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <DashboardHeader />
 
-      {rightSidebar}
+        <div className="flex min-h-0 flex-1">
+          <main className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
+
+          {rightSidebar}
+        </div>
+      </div>
     </div>
   );
 }

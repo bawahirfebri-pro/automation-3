@@ -14,7 +14,7 @@ export default function KkSummary({ data, modelUsed, isLoading = false }: KkSumm
       <section className="col-span-12 lg:col-span-6">
         <div className="flex min-h-[408px] items-center justify-center rounded-xl border border-gray-200 bg-white">
           <div className="flex flex-col items-center px-6 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
               <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
             </div>
 
@@ -80,10 +80,10 @@ export default function KkSummary({ data, modelUsed, isLoading = false }: KkSumm
 
   return (
     <section className="col-span-12 lg:col-span-6">
-      <div className="min-h-[408px] overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+      <div className="h-full overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-gray-200/70 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -105,9 +105,11 @@ export default function KkSummary({ data, modelUsed, isLoading = false }: KkSumm
             </div>
 
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-gray-900">Informasi Kartu Keluarga</h2>
+              <h2 className="text-[13px] font-medium tracking-[-0.01em] text-gray-900">
+                Kartu Keluarga
+              </h2>
 
-              <p className="text-xs text-gray-500">Data hasil ekstraksi dokumen</p>
+              <p className="text-xs text-gray-500">Data alamat dan administrasi keluarga</p>
             </div>
           </div>
 

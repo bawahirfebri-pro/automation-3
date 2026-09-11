@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import DashboardContent from "@/components/dashboard/dashboard-content";
 import DashboardLayout from "@/components/dashboard/dashboard-layout";
+import type { StudentDomainTab } from "@/components/dashboard/student-domain-header";
 import StudentDomainHeader from "@/components/dashboard/student-domain-header";
 
 import { useSaveFeedback } from "@/hooks/use-save-feedback";
@@ -15,12 +17,11 @@ import { dedupeDocumentFiles, toNameCase } from "@/lib/documents/document-helper
 import { extractStudentNameFromFilename } from "@/lib/documents/document-name";
 import { createFileStudentMatch } from "@/lib/students/file-student-matcher";
 import { normalizeStudentName } from "@/lib/students/student-matcher";
-import { clearStudentUrl, setStudentUrl } from "@/lib/students/student-url";
+import { getStudentRouteView, setStudentUrl } from "@/lib/students/student-url";
 
-import DocumentResultSection from "@/features/student-document-extraction/components/document-result-section";
-import StudentDocumentWorkflow from "@/features/student-document-extraction/components/student-document-workflow";
+import PendingUploadTray from "@/features/student-document-extraction/components/pending-upload-tray";
+import StudentProfile from "@/features/student-document-extraction/components/student-profile";
 import StudentSidebar from "@/features/student-document-extraction/components/student-sidebar";
-import UploadSection from "@/features/student-document-extraction/components/upload-section";
 
 import { useDocumentExtraction } from "@/features/student-document-extraction/hooks/use-document-extraction";
 import { useDocumentFiles } from "@/features/student-document-extraction/hooks/use-document-files";
@@ -37,7 +38,6 @@ import { useStudentUrlRestore } from "@/features/student-document-extraction/hoo
 
 import { getActiveDocumentView } from "@/features/student-document-extraction/lib/active-document-view";
 import { analyzeUploadStudentFilenames } from "@/features/student-document-extraction/lib/analyze-upload-student-filenames";
-import { buildBulkStudentSavePayloads } from "@/features/student-document-extraction/lib/build-bulk-student-save-payloads";
 import { buildHistorySavePayload } from "@/features/student-document-extraction/lib/build-history-save-payload";
 import { buildDocumentDisplayFiles } from "@/features/student-document-extraction/lib/document-display-files";
 import { planDocumentRemoval } from "@/features/student-document-extraction/lib/document-removal-planner";
@@ -53,6 +53,9 @@ import { planUploadSessionMerge } from "@/features/student-document-extraction/l
 import type { StudentRecord } from "@/types/student";
 
 export default function StudentDocumentExtractionFeature() {
+  const pathname = usePathname();
+  const activeDomainTab: StudentDomainTab = getStudentRouteView(pathname);
+
   const [isPreprocessing, setIsPreprocessing] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [selectedStudentRow, setSelectedStudentRow] = useState<number | null>(null);
@@ -62,9 +65,11 @@ export default function StudentDocumentExtractionFeature() {
   const [fileStudentScopes, setFileStudentScopes] = useState<Record<string, number[]>>({});
   const [pendingUploadFileKeys, setPendingUploadFileKeys] = useState<string[]>([]);
 
-  const { saveFeedback, setTemporarySaveFeedback } = useSaveFeedback();
+  const { setTemporarySaveFeedback } = useSaveFeedback();
 
   const studentRequestIdRef = useRef(0);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const navigateToSummaryAfterUploadRef = useRef(false);
 
   const {
     isExtracting,
@@ -76,7 +81,6 @@ export default function StudentDocumentExtractionFeature() {
     failedFileKeys,
     documentTypes,
     fileExtractions,
-    errorMsg,
     extract,
     removeFileExtraction,
     restore,
@@ -85,7 +89,7 @@ export default function StudentDocumentExtractionFeature() {
 
   const { history, addOrUpdateHistory, markAsSaved } = useExtractionHistory();
   const { students, loadingStudents, studentError, refreshStudents } = useStudents();
-  const { saving: savingAll, save, saveMany } = useStudentSave();
+  const { saving: savingAll, save } = useStudentSave();
   const { files, clearFiles, replaceFiles } = useDocumentFiles();
 
   const historyMap = useMemo(() => new Map(history.map((item) => [item.id, item])), [history]);
@@ -100,6 +104,7 @@ export default function StudentDocumentExtractionFeature() {
 
   const currentFileKeys = useMemo(() => files.map((file) => getDocumentFileKey(file)), [files]);
   const currentFileKeySet = useMemo(() => new Set(currentFileKeys), [currentFileKeys]);
+  const hasUnsavedPending = files.length > 0;
 
   const {
     fileStudentMatches,
@@ -378,22 +383,17 @@ export default function StudentDocumentExtractionFeature() {
   }, [detectedFileKeys, currentFileKeySet, scopedRowsByFile]);
 
   const primarySessionStudent = useMemo(() => {
-    if (files.length > 0) {
-      if (selectedStudentRow !== null) {
-        const selectedInSession = sessionStudents.find(
-          (student) => student.rowIndex === selectedStudentRow,
-        );
+    if (selectedStudentRow !== null) {
+      const selectedStudent =
+        students.find((student) => student.rowIndex === selectedStudentRow) ?? null;
 
-        if (selectedInSession) {
-          return selectedInSession;
-        }
+      if (selectedStudent) {
+        return selectedStudent;
       }
-
-      return sessionStudents[0] ?? null;
     }
 
-    if (selectedStudentRow !== null) {
-      return students.find((student) => student.rowIndex === selectedStudentRow) ?? null;
+    if (files.length > 0) {
+      return sessionStudents[0] ?? null;
     }
 
     return null;
@@ -425,20 +425,19 @@ export default function StudentDocumentExtractionFeature() {
     studentDetailBaseline,
   });
 
-  const { activeKk, activeAkta, activeModelUsedKk, activeModelUsedAkta, activeStudentName } =
-    getActiveDocumentView({
-      filesLength: files.length,
-      selectedHistoryId,
-      primarySessionStudent,
-      sessionKkExtraction,
-      sessionAktaExtraction,
-      unregisteredExtraction,
-      activeStudentBaseline,
-      resultKk,
-      resultAkta,
-      modelUsedKk,
-      modelUsedAkta,
-    });
+  const { activeKk, activeAkta, activeModelUsedKk, activeModelUsedAkta } = getActiveDocumentView({
+    filesLength: files.length,
+    selectedHistoryId,
+    primarySessionStudent,
+    sessionKkExtraction,
+    sessionAktaExtraction,
+    unregisteredExtraction,
+    activeStudentBaseline,
+    resultKk,
+    resultAkta,
+    modelUsedKk,
+    modelUsedAkta,
+  });
 
   const displayFiles = buildDocumentDisplayFiles({
     files,
@@ -481,6 +480,34 @@ export default function StudentDocumentExtractionFeature() {
     setSelectedStudentRow,
   });
 
+  useEffect(() => {
+    if (!navigateToSummaryAfterUploadRef.current) return;
+    if (isPreprocessing || isExtracting) return;
+    if (!primarySessionStudent) return;
+
+    setStudentUrl(primarySessionStudent.nik);
+    navigateToSummaryAfterUploadRef.current = false;
+  }, [primarySessionStudent, isPreprocessing, isExtracting]);
+
+  useEffect(() => {
+    if (!hasUnsavedPending) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedPending]);
+
+  const handleOpenUploadPicker = () => {
+    uploadInputRef.current?.click();
+  };
+
   const handleUploadFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const pickedFiles = Array.from(event.target.files ?? []);
 
@@ -490,12 +517,14 @@ export default function StudentDocumentExtractionFeature() {
       return;
     }
 
+    navigateToSummaryAfterUploadRef.current = true;
     setIsPreprocessing(true);
 
     try {
       const selectedFiles = await preprocessUploadFiles(pickedFiles);
 
       if (selectedFiles.length === 0) {
+        navigateToSummaryAfterUploadRef.current = false;
         return;
       }
 
@@ -512,6 +541,8 @@ export default function StudentDocumentExtractionFeature() {
       } = analyzeUploadStudentFilenames(selectedFiles, students);
 
       if (allSelectedNotFound) {
+        navigateToSummaryAfterUploadRef.current = false;
+
         invalidateAllAiTasks();
         clearResolutionState();
 
@@ -729,6 +760,8 @@ export default function StudentDocumentExtractionFeature() {
         resetStudentDetailBaseline();
 
         replaceFiles(incomingFiles);
+
+        navigateToSummaryAfterUploadRef.current = false;
         return;
       }
 
@@ -800,122 +833,8 @@ export default function StudentDocumentExtractionFeature() {
 
   const handleResolveFileStudent = resolveFileStudent;
 
-  const handleRemoveUploadFile = (fileKey: string, studentRowIndex: number | null) => {
-    const index = files.findIndex((file) => getDocumentFileKey(file) === fileKey);
-
-    if (index === -1) return;
-
-    const file = files[index];
-
-    const removalPlan = planDocumentRemoval({
-      hasKkExtraction: Boolean(fileExtractions[fileKey]?.kk),
-      rawRows: rawRowsByFile[fileKey] ?? [],
-      scopedRows: scopedRowsByFile[fileKey] ?? [],
-      studentRowIndex,
-    });
-
-    if (removalPlan.mode === "virtual") {
-      setFileStudentScopes((previous) => ({ ...previous, [fileKey]: removalPlan.remainingRows }));
-
-      if (selectedStudentRow === studentRowIndex) {
-        clearStudentUrl();
-
-        setSelectedStudentRow(removalPlan.remainingRows[0] ?? null);
-      }
-
-      return;
-    }
-
-    invalidateAiTasksForFile(fileKey);
-
-    removeFileExtraction(file);
-
-    /*
-     * Hapus physical file berdasarkan
-     * fileKey, bukan berdasarkan posisi
-     * index pada array.
-     *
-     * Ini memastikan file lain,
-     * termasuk Bukan KK/Akta,
-     * tetap dipertahankan.
-     */
-    const remainingFiles = files.filter((item) => getDocumentFileKey(item) !== fileKey);
-
-    replaceFiles(remainingFiles);
-
-    setDetectedFileKeys((previous) => previous.filter((key) => key !== fileKey));
-
-    setPendingUploadFileKeys((previous) => previous.filter((key) => key !== fileKey));
-
-    setFileStudentScopes((previous) => {
-      const next = { ...previous };
-      delete next[fileKey];
-      return next;
-    });
-
-    setFileStudentMatches((previous) => {
-      const next = { ...previous };
-      delete next[fileKey];
-      return next;
-    });
-
-    const remainingFileKeys = remainingFiles.map(getDocumentFileKey);
-
-    const remainingSessionRows = [
-      ...new Set(remainingFileKeys.flatMap((key) => scopedRowsByFile[key] ?? [])),
-    ];
-
-    setDetectedStudentRowIndexes(remainingSessionRows);
-
-    if (selectedStudentRow !== null && !remainingSessionRows.includes(selectedStudentRow)) {
-      const nextStudentRow = remainingSessionRows[0] ?? null;
-
-      setSelectedStudentRow(nextStudentRow);
-
-      /*
-       * Siswa aktif sudah tidak menjadi
-       * bagian session.
-       *
-       * Detail lama tidak boleh tetap
-       * tampil.
-       */
-      setStudentDetailBaseline(null);
-
-      setSelectedHistoryId("");
-
-      setLoadingStudentDetail(false);
-
-      if (nextStudentRow === null) {
-        /*
-         * Tidak ada murid lain.
-         * Contoh:
-         *
-         * Jauza_KK.pdf dihapus,
-         * tetapi file Bukan KK/Akta
-         * masih tersisa.
-         */
-        clearStudentUrl();
-      }
-    }
-
-    if (remainingFileKeys.length === 0) {
-      clearStudentUrl();
-
-      setDetectedFileKeys([]);
-      setDetectedStudentRowIndexes([]);
-      setSelectedHistoryId("");
-      setSelectedStudentRow(null);
-      resetStudentDetailBaseline();
-      setFilenameMatchIssues({});
-      setFileStudentMatches({});
-      setFileStudentScopes({});
-      setPendingUploadFileKeys([]);
-      invalidateAllAiTasks();
-      clearResolutionState();
-    }
-  };
-
   const handleResetUploadSession = () => {
+    navigateToSummaryAfterUploadRef.current = false;
     studentRequestIdRef.current += 1;
     invalidateAllAiTasks();
     clearResolutionState();
@@ -938,26 +857,30 @@ export default function StudentDocumentExtractionFeature() {
       }
 
       setStudentUrl(student.nik);
+
       if (files.length > 0 && sessionStudentRowIndexes.includes(student.rowIndex)) {
         setSelectedStudentRow(student.rowIndex);
         setSelectedHistoryId("");
         return;
       }
+
       const requestId = ++studentRequestIdRef.current;
-      invalidateAllAiTasks();
-      clearResolutionState();
-      clearFiles();
-      reset();
-      setDetectedFileKeys([]);
-      setDetectedStudentRowIndexes([]);
+
+      if (files.length === 0) {
+        invalidateAllAiTasks();
+        clearResolutionState();
+        clearFiles();
+        reset();
+        setDetectedFileKeys([]);
+        setDetectedStudentRowIndexes([]);
+        setFileStudentMatches({});
+        setFileStudentScopes({});
+        setPendingUploadFileKeys([]);
+      }
+
       setSelectedStudentRow(student.rowIndex);
       setSelectedHistoryId("");
       setLoadingStudentDetail(false);
-      setFileStudentMatches({});
-      setFileStudentScopes({});
-
-      setPendingUploadFileKeys([]);
-
       const normalizedStudentName = extractStudentNameFromFilename(`${student.nama}_KK.pdf`);
       setSelectedHistoryId(normalizedStudentName);
       const localItem = historyMap.get(normalizedStudentName);
@@ -1038,6 +961,113 @@ export default function StudentDocumentExtractionFeature() {
 
   const handleIgnoreFileStudent = ignoreFileStudent;
 
+  const getStudentSavePayload = useCallback(
+    (student: StudentRecord) => {
+      const normalizedStudentName = extractStudentNameFromFilename(`${student.nama}_KK.pdf`);
+
+      if (files.length > 0) {
+        return buildSessionSavePayload({
+          student,
+          sessionStudentRowIndexes,
+          currentFileKeys,
+          scopedRowsByFile,
+          fileExtractions,
+        });
+      }
+
+      const localItem = historyMap.get(normalizedStudentName);
+
+      if (!localItem) {
+        return null;
+      }
+
+      return buildHistorySavePayload({
+        student,
+        historyItem: localItem,
+        fileName: `${localItem.studentName}_KK.pdf`,
+      });
+    },
+    [
+      files.length,
+      sessionStudentRowIndexes,
+      currentFileKeys,
+      scopedRowsByFile,
+      fileExtractions,
+      historyMap,
+    ],
+  );
+
+  const cleanupSavedStudentSession = (studentRowIndex: number) => {
+    if (files.length === 0) return;
+
+    const nextScopes = { ...fileStudentScopes };
+    const removedFileKeys = new Set<string>();
+
+    currentFileKeys.forEach((fileKey) => {
+      const scopedRows = scopedRowsByFile[fileKey] ?? [];
+
+      if (!scopedRows.includes(studentRowIndex)) return;
+
+      const removalPlan = planDocumentRemoval({
+        hasKkExtraction: Boolean(fileExtractions[fileKey]?.kk),
+        rawRows: rawRowsByFile[fileKey] ?? [],
+        scopedRows,
+        studentRowIndex,
+      });
+
+      if (removalPlan.mode === "virtual") {
+        nextScopes[fileKey] = removalPlan.remainingRows;
+        return;
+      }
+
+      delete nextScopes[fileKey];
+      removedFileKeys.add(fileKey);
+    });
+
+    setFileStudentScopes(nextScopes);
+
+    if (removedFileKeys.size === 0) {
+      return;
+    }
+
+    files.forEach((file) => {
+      const fileKey = getDocumentFileKey(file);
+
+      if (!removedFileKeys.has(fileKey)) return;
+
+      invalidateAiTasksForFile(fileKey);
+      removeFileExtraction(file);
+    });
+
+    setFileStudentMatches((previous) => {
+      const next = { ...previous };
+
+      removedFileKeys.forEach((fileKey) => {
+        delete next[fileKey];
+      });
+
+      return next;
+    });
+
+    setFilenameMatchIssues((previous) => {
+      const next = { ...previous };
+
+      removedFileKeys.forEach((fileKey) => {
+        delete next[fileKey];
+      });
+
+      return next;
+    });
+
+    setPendingUploadFileKeys((previous) =>
+      previous.filter((fileKey) => !removedFileKeys.has(fileKey)),
+    );
+
+    setDetectedFileKeys((previous) => previous.filter((fileKey) => !removedFileKeys.has(fileKey)));
+
+    replaceFiles(files.filter((file) => !removedFileKeys.has(getDocumentFileKey(file))));
+  };
+
   const handleSaveStudent = async (student: StudentRecord) => {
     if (savingStudentId || savingAll || sessionConflict || duplicateDocumentMsg) {
       return;
@@ -1054,29 +1084,7 @@ export default function StudentDocumentExtractionFeature() {
     }
 
     const normalizedStudentName = extractStudentNameFromFilename(`${currentStudent.nama}_KK.pdf`);
-
-    const payload =
-      files.length > 0
-        ? buildSessionSavePayload({
-            student: currentStudent,
-            sessionStudentRowIndexes,
-            currentFileKeys,
-            scopedRowsByFile,
-            fileExtractions,
-          })
-        : (() => {
-            const localItem = historyMap.get(normalizedStudentName);
-
-            if (!localItem) {
-              return null;
-            }
-
-            return buildHistorySavePayload({
-              student: currentStudent,
-              historyItem: localItem,
-              fileName: `${localItem.studentName}_KK.pdf`,
-            });
-          })();
+    const payload = getStudentSavePayload(currentStudent);
 
     if (!payload) {
       if (files.length > 0) {
@@ -1112,6 +1120,10 @@ export default function StudentDocumentExtractionFeature() {
 
       markAsSaved(normalizedStudentName);
 
+      if (files.length > 0) {
+        cleanupSavedStudentSession(currentStudent.rowIndex);
+      }
+
       await refreshStudents();
 
       setSelectedStudentRow(currentStudent.rowIndex);
@@ -1126,74 +1138,35 @@ export default function StudentDocumentExtractionFeature() {
     }
   };
 
-  const handleSaveAllStudents = async (targetStudents: StudentRecord[]) => {
-    if (
-      savingAll ||
-      savingStudentId ||
-      sessionConflict ||
-      duplicateDocumentMsg ||
-      targetStudents.length === 0
-    ) {
-      return;
-    }
+  const profileSavePayload = primarySessionStudent
+    ? getStudentSavePayload(primarySessionStudent)
+    : null;
 
-    const payloads = buildBulkStudentSavePayloads({
-      targetStudents,
-      hasActiveFiles: files.length > 0,
-      sessionStudentRowIndexes,
-      currentFileKeys,
-      scopedRowsByFile,
-      fileExtractions,
-      historyMap,
-    });
+  const profileStudentId = primarySessionStudent
+    ? extractStudentNameFromFilename(`${primarySessionStudent.nama}_KK.pdf`)
+    : "";
 
-    if (payloads.length === 0) {
-      console.warn("[Save All] Tidak ada data baru yang dapat disimpan.");
-      return;
-    }
+  const isSavingProfileStudent = Boolean(profileStudentId) && savingStudentId === profileStudentId;
 
-    try {
-      const result = await saveMany(payloads);
-      const resultRows = new Set<number>();
-      for (const item of result.results) {
-        resultRows.add(item.rowIndex);
-        const student = students.find((candidate) => candidate.rowIndex === item.rowIndex);
-        if (!student) continue;
-        const studentId = extractStudentNameFromFilename(`${student.nama}_KK.pdf`);
-        setTemporarySaveFeedback(studentId, item.success ? "success" : "error");
-        if (item.success) {
-          markAsSaved(studentId);
-        } else {
-          console.error("[Save All] Gagal menyimpan siswa:", {
-            student: student.nama,
-            rowIndex: student.rowIndex,
-            result: item,
-          });
-        }
-      }
-      payloads.forEach((payload) => {
-        if (resultRows.has(payload.rowIndex)) return;
-        const student = students.find((candidate) => candidate.rowIndex === payload.rowIndex);
-        if (!student) return;
-        const studentId = extractStudentNameFromFilename(`${student.nama}_KK.pdf`);
-        console.error("[Save All] Tidak ada response untuk siswa:", {
-          student: student.nama,
-          rowIndex: student.rowIndex,
-        });
-        setTemporarySaveFeedback(studentId, "error");
-      });
-      if (result.successCount > 0) {
-        await refreshStudents();
-      }
-    } catch (error) {
-      console.error("[Save All Students]", error);
-      payloads.forEach((payload) => {
-        const student = students.find((candidate) => candidate.rowIndex === payload.rowIndex);
-        if (!student) return;
-        const studentId = extractStudentNameFromFilename(`${student.nama}_KK.pdf`);
-        setTemporarySaveFeedback(studentId, "error");
-      });
-    }
+  const canSaveProfileStudent =
+    Boolean(profileSavePayload) &&
+    !savingStudentId &&
+    !savingAll &&
+    !sessionConflict &&
+    !duplicateDocumentMsg;
+
+  const handleDomainTabChange = (tab: StudentDomainTab) => {
+    if (tab !== "profile") return;
+
+    const activeStudent =
+      primarySessionStudent ??
+      (selectedStudentRow !== null
+        ? (students.find((student) => student.rowIndex === selectedStudentRow) ?? null)
+        : null);
+
+    if (!activeStudent) return;
+
+    setStudentUrl(activeStudent.nik);
   };
 
   return (
@@ -1202,67 +1175,70 @@ export default function StudentDocumentExtractionFeature() {
       rightSidebar={
         <StudentSidebar
           students={students}
+          history={history}
           loading={loadingStudents}
           error={studentError}
           activeRowIndex={selectedStudentRow}
           priorityRowIndexes={detectedStudentRowIndexes}
+          footer={
+            files.length > 0 ? (
+              <PendingUploadTray
+                displayFiles={displayFiles}
+                processedFileKeys={processedFileKeys}
+                failedFileKeys={failedFileKeys}
+                aiMatchingFileKeys={aiMatchingFileKeys}
+                filenameMatchIssues={filenameMatchIssues}
+                fileStudentMatches={fileStudentMatches}
+                manualTasks={manualTasksByFile}
+                manualTaskResolutions={manualTaskResolutions}
+                students={students}
+                onResetSession={handleResetUploadSession}
+                onResolveStudent={handleResolveFileStudent}
+                onIgnoreStudent={handleIgnoreFileStudent}
+              />
+            ) : null
+          }
           onSelect={handleSelectStudent}
           onRefresh={refreshStudents}
         />
       }
     >
-      <div className="-m-4 flex min-h-full flex-col">
-        <StudentDomainHeader />
+      <div className="flex h-full min-h-0 flex-col">
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="application/pdf"
+          multiple
+          className="hidden"
+          onChange={handleUploadFileChange}
+        />
 
-        <div className="min-h-0 flex-1 p-4">
+        <StudentDomainHeader
+          activeTab={activeDomainTab}
+          canOpenProfile={Boolean(primarySessionStudent)}
+          onTabChange={handleDomainTabChange}
+          onUpload={handleOpenUploadPicker}
+          isUploading={isPreprocessing || isExtracting}
+        />
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
           <DashboardContent>
-            <section className="col-span-12 lg:col-span-6">
-              <UploadSection
-                files={files}
-                displayFiles={displayFiles}
-                fileStudentMatches={fileStudentMatches}
-                manualTasks={manualTasksByFile}
-                manualTaskResolutions={manualTaskResolutions}
-                students={students}
-                processedFileKeys={processedFileKeys}
-                aiMatchingFileKeys={aiMatchingFileKeys}
-                isExtracting={isExtracting}
-                errorMsg={errorMsg}
-                conflictMsg={sessionConflict}
-                duplicateMsg={duplicateDocumentMsg}
-                sessionReady={sessionReady}
-                hasPendingFiles={hasPendingFiles}
-                onFileChange={handleUploadFileChange}
-                onRemoveFile={handleRemoveUploadFile}
-                onResetSession={handleResetUploadSession}
-                onResolveStudent={handleResolveFileStudent}
-                onIgnoreStudent={handleIgnoreFileStudent}
-                filenameMatchIssues={filenameMatchIssues}
-                failedFileKeys={failedFileKeys}
-                isPreprocessing={isPreprocessing}
-              />
-            </section>
-
-            <StudentDocumentWorkflow
-              students={students}
-              history={history}
-              activeRowIndex={selectedStudentRow}
-              priorityRowIndexes={detectedStudentRowIndexes}
-              savingStudentId={savingStudentId}
-              saveFeedback={saveFeedback}
-              onSave={handleSaveStudent}
-              onSaveAll={handleSaveAllStudents}
-              savingAll={savingAll}
-            />
-
-            <DocumentResultSection
-              akta={activeAkta}
+            <StudentProfile
+              student={primarySessionStudent}
               kk={activeKk}
-              modelUsedAkta={activeModelUsedAkta}
+              akta={activeAkta}
               modelUsedKk={activeModelUsedKk}
-              studentName={activeStudentName}
+              modelUsedAkta={activeModelUsedAkta}
               isLoading={loadingStudentDetail}
               isAiMatching={isAiMatching}
+              hasPendingKk={Boolean(sessionKkExtraction?.kk)}
+              hasPendingAkta={Boolean(sessionAktaExtraction?.akta)}
+              canSave={canSaveProfileStudent}
+              isSaving={isSavingProfileStudent}
+              onSave={() => {
+                if (!primarySessionStudent) return;
+                void handleSaveStudent(primarySessionStudent);
+              }}
             />
           </DashboardContent>
         </div>

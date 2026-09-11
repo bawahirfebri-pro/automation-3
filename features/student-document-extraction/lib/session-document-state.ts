@@ -37,7 +37,7 @@ export function getSessionDocumentState({
   const sessionAktaExtraction = primaryStudentExtractions.find((item) => item.akta) ?? null;
 
   const unregisteredExtraction =
-    sessionStudents.length > 0
+    sessionStudents.length > 0 || primarySessionStudent
       ? null
       : (currentFileKeys
           .map((fileKey) => fileExtractions[fileKey])
