@@ -1,5 +1,5 @@
-import { StudentDocumentExtractionFeature } from "@/features/student-document-extraction";
+import { StudentDocumentExtractionFeature } from "@/features/student";
 
-export default function StudentSummaryPage() {
+export default function StudentProfilePage() {
   return <StudentDocumentExtractionFeature />;
 }

@@ -1,5 +1,5 @@
-import { StudentDocumentExtractionFeature } from "@/features/student-document-extraction";
+import StudentFeature from "@/features/student/student-feature";
 
 export default function Home() {
-  return <StudentDocumentExtractionFeature />;
+  return <StudentFeature />;
 }

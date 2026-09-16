@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { extractKkPageIdentity } from "@/features/student-document-extraction/lib/documents/page-identity";
+import { extractKkPageIdentity } from "@/features/student/lib/documents/page-identity";
 
 export async function POST(request: Request) {
   try {

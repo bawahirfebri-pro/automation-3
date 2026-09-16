@@ -1,0 +1,497 @@
+===== DATE =====
+9/16/2026 7:19:53 AM
+
+===== GIT STATUS =====
+ M app/students/[nik]/page.tsx
+ M components/dashboard/dashboard-content.tsx
+ M components/dashboard/dashboard-header.tsx
+ D features/student-document-extraction/components/akta-panel.tsx
+ M features/student-document-extraction/components/document-result-section.tsx
+ M features/student-document-extraction/components/kk-members.tsx
+ M features/student-document-extraction/components/kk-summary.tsx
+ D features/student-document-extraction/components/student-document-workflow.tsx
+ M features/student-document-extraction/components/student-profile.tsx
+ M features/student-document-extraction/student-document-extraction-feature.tsx
+?? PROJECT_AUDIT_SNAPSHOT.txt
+?? features/student-document-extraction/components/profile-card.tsx
+
+===== PROJECT TREE =====
+app\[nik]\page.tsx
+app\api\check-gemini\route.ts
+app\api\extract\akta\route.ts
+app\api\extract\classify\route.ts
+app\api\extract\kk\route.ts
+app\api\kk-page-identity\route.ts
+app\api\students\[rowIndex]\route.ts
+app\api\students\match\route.ts
+app\api\students\route.ts
+app\layout.tsx
+app\page.tsx
+app\students\[nik]\page.tsx
+app\students\document-extraction\[nik]\page.tsx
+app\students\document-extraction\page.tsx
+components\dashboard\dashboard-content.tsx
+components\dashboard\dashboard-header.tsx
+components\dashboard\dashboard-layout.tsx
+components\dashboard\dashboard-sidebar.tsx
+components\dashboard\student-domain-header.tsx
+features\student-document-extraction\components\document-result-section.tsx
+features\student-document-extraction\components\kk-members.tsx
+features\student-document-extraction\components\kk-summary.tsx
+features\student-document-extraction\components\pending-upload-tray.tsx
+features\student-document-extraction\components\profile-card.tsx
+features\student-document-extraction\components\student-profile.tsx
+features\student-document-extraction\components\student-sidebar.tsx
+features\student-document-extraction\hooks\use-document-extraction.ts
+features\student-document-extraction\hooks\use-document-files.ts
+features\student-document-extraction\hooks\use-extraction-history.ts
+features\student-document-extraction\hooks\use-file-student-resolution.ts
+features\student-document-extraction\hooks\use-pending-document-extraction.ts
+features\student-document-extraction\hooks\use-session-history-sync.ts
+features\student-document-extraction\hooks\use-session-readiness.ts
+features\student-document-extraction\hooks\use-session-student-selection.ts
+features\student-document-extraction\hooks\use-session-url-sync.ts
+features\student-document-extraction\hooks\use-student-detail-baseline.ts
+features\student-document-extraction\hooks\use-student-save.ts
+features\student-document-extraction\hooks\use-student-url-restore.ts
+features\student-document-extraction\index.ts
+features\student-document-extraction\lib\active-document-view.ts
+features\student-document-extraction\lib\analyze-upload-student-filenames.ts
+features\student-document-extraction\lib\api\kk-page-identity.ts
+features\student-document-extraction\lib\api\student-save.ts
+features\student-document-extraction\lib\build-bulk-student-save-payloads.ts
+features\student-document-extraction\lib\build-history-save-payload.ts
+features\student-document-extraction\lib\document-display-files.ts
+features\student-document-extraction\lib\document-removal-planner.test.ts
+features\student-document-extraction\lib\document-removal-planner.ts
+features\student-document-extraction\lib\documents\canonical-file-name.ts
+features\student-document-extraction\lib\documents\kk-page-grouper.ts
+features\student-document-extraction\lib\documents\page-identity.ts
+features\student-document-extraction\lib\documents\pdf-splitter.ts
+features\student-document-extraction\lib\documents\preprocess-upload-files.ts
+features\student-document-extraction\lib\extraction\akta-extraction.ts
+features\student-document-extraction\lib\extraction\document-classifier.ts
+features\student-document-extraction\lib\extraction\document-extraction.ts
+features\student-document-extraction\lib\extraction\kk-extraction.ts
+features\student-document-extraction\lib\extraction\prompts\akta-prompt.ts
+features\student-document-extraction\lib\extraction\prompts\kk-prompt.ts
+features\student-document-extraction\lib\file-resolution-state.ts
+features\student-document-extraction\lib\get-pending-upload-batch-state.ts
+features\student-document-extraction\lib\get-upload-fast-path-state.ts
+features\student-document-extraction\lib\session-document-state.test.ts
+features\student-document-extraction\lib\session-document-state.ts
+features\student-document-extraction\lib\session-history.ts
+features\student-document-extraction\lib\session-readiness.test.ts
+features\student-document-extraction\lib\session-readiness.ts
+features\student-document-extraction\lib\session-save-payload.test.ts
+features\student-document-extraction\lib\session-save-payload.ts
+features\student-document-extraction\lib\student-file-membership.test.ts
+features\student-document-extraction\lib\student-file-membership.ts
+features\student-document-extraction\lib\upload-session-planner.test.ts
+features\student-document-extraction\lib\upload-session-planner.ts
+features\student-document-extraction\lib\validation\akta-schema.ts
+features\student-document-extraction\lib\validation\kk-schema.ts
+features\student-document-extraction\student-document-extraction-feature.tsx
+features\student-document-extraction\types\student-save.ts
+hooks\use-save-feedback.ts
+hooks\use-students.ts
+lib\api\students.ts
+lib\documents\document-file-key.ts
+lib\documents\document-helpers.ts
+lib\documents\document-name.ts
+lib\formatting\text-formatter.ts
+lib\history\extraction-history.ts
+lib\sheets\google-sheet-student-repository.test.ts
+lib\sheets\google-sheet-student-repository.ts
+lib\sheets\sheet-mapper.ts
+lib\sheets\student-detail-mapper.ts
+lib\sheets\student-record-mapper.ts
+lib\sheets\student-sheet.ts
+lib\students\file-student-matcher.ts
+lib\students\kk-student-eligibility.ts
+lib\students\nik-parser.ts
+lib\students\student-ai-matcher.ts
+lib\students\student-completeness.ts
+lib\students\student-matcher.ts
+lib\students\student-repository.test.ts
+lib\students\student-repository.ts
+lib\students\student-url.ts
+lib\validation\kk-validation.ts
+types\akta.ts
+types\document-file.ts
+types\extraction.ts
+types\extraction-history.ts
+types\kk.ts
+types\manual-resolution.ts
+types\page-identity.ts
+types\student.ts
+types\student-detail.ts
+
+===== LINE COUNTS =====
+1245	features\student-document-extraction\student-document-extraction-feature.tsx
+526	features\student-document-extraction\components\student-sidebar.tsx
+433	lib\students\file-student-matcher.ts
+412	features\student-document-extraction\components\student-profile.tsx
+358	features\student-document-extraction\hooks\use-file-student-resolution.ts
+328	features\student-document-extraction\components\pending-upload-tray.tsx
+318	features\student-document-extraction\hooks\use-document-extraction.ts
+289	features\student-document-extraction\components\profile-card.tsx
+271	lib\students\student-matcher.ts
+232	features\student-document-extraction\components\kk-members.tsx
+210	lib\students\student-ai-matcher.ts
+177	features\student-document-extraction\lib\session-readiness.test.ts
+177	lib\sheets\sheet-mapper.ts
+176	features\student-document-extraction\hooks\use-student-save.ts
+151	features\student-document-extraction\lib\session-save-payload.test.ts
+149	lib\students\kk-student-eligibility.ts
+145	features\student-document-extraction\lib\session-readiness.ts
+141	lib\students\student-repository.test.ts
+137	features\student-document-extraction\lib\documents\page-identity.ts
+136	components\dashboard\dashboard-sidebar.tsx
+134	features\student-document-extraction\lib\session-document-state.test.ts
+123	features\student-document-extraction\components\kk-summary.tsx
+121	features\student-document-extraction\lib\documents\pdf-splitter.ts
+118	features\student-document-extraction\lib\file-resolution-state.ts
+118	features\student-document-extraction\lib\extraction\document-extraction.ts
+113	features\student-document-extraction\lib\extraction\kk-extraction.ts
+113	lib\history\extraction-history.ts
+103	features\student-document-extraction\lib\document-display-files.ts
+101	features\student-document-extraction\lib\extraction\akta-extraction.ts
+101	lib\sheets\google-sheet-student-repository.test.ts
+101	features\student-document-extraction\hooks\use-student-detail-baseline.ts
+96	components\dashboard\student-domain-header.tsx
+94	hooks\use-students.ts
+92	lib\sheets\student-sheet.ts
+88	features\student-document-extraction\lib\get-pending-upload-batch-state.ts
+85	features\student-document-extraction\lib\documents\preprocess-upload-files.ts
+83	app\api\students\match\route.ts
+81	features\student-document-extraction\lib\extraction\document-classifier.ts
+81	features\student-document-extraction\lib\upload-session-planner.test.ts
+80	lib\formatting\text-formatter.ts
+78	features\student-document-extraction\lib\session-history.ts
+75	features\student-document-extraction\lib\active-document-view.ts
+71	features\student-document-extraction\lib\document-removal-planner.test.ts
+70	lib\sheets\student-detail-mapper.ts
+67	features\student-document-extraction\lib\analyze-upload-student-filenames.ts
+66	features\student-document-extraction\lib\build-bulk-student-save-payloads.ts
+66	features\student-document-extraction\lib\session-document-state.ts
+62	lib\api\students.ts
+60	lib\students\nik-parser.ts
+57	app\api\extract\kk\route.ts
+57	features\student-document-extraction\lib\session-save-payload.ts
+57	features\student-document-extraction\lib\documents\kk-page-grouper.ts
+57	features\student-document-extraction\hooks\use-extraction-history.ts
+56	features\student-document-extraction\hooks\use-document-files.ts
+55	app\api\extract\akta\route.ts
+55	app\api\extract\classify\route.ts
+55	features\student-document-extraction\hooks\use-session-history-sync.ts
+55	features\student-document-extraction\lib\extraction\prompts\kk-prompt.ts
+50	features\student-document-extraction\hooks\use-session-readiness.ts
+50	features\student-document-extraction\hooks\use-student-url-restore.ts
+49	components\dashboard\dashboard-header.tsx
+45	features\student-document-extraction\lib\api\student-save.ts
+44	features\student-document-extraction\lib\student-file-membership.test.ts
+43	lib\students\student-url.ts
+42	features\student-document-extraction\lib\upload-session-planner.ts
+38	features\student-document-extraction\lib\get-upload-fast-path-state.ts
+37	features\student-document-extraction\lib\extraction\prompts\akta-prompt.ts
+37	features\student-document-extraction\lib\api\kk-page-identity.ts
+36	features\student-document-extraction\components\document-result-section.tsx
+34	app\api\check-gemini\route.ts
+33	components\dashboard\dashboard-layout.tsx
+33	lib\sheets\google-sheet-student-repository.ts
+32	features\student-document-extraction\hooks\use-pending-document-extraction.ts
+31	features\student-document-extraction\lib\validation\kk-schema.ts
+31	features\student-document-extraction\hooks\use-session-url-sync.ts
+29	features\student-document-extraction\lib\document-removal-planner.ts
+28	types\kk.ts
+27	features\student-document-extraction\lib\student-file-membership.ts
+27	hooks\use-save-feedback.ts
+26	app\api\kk-page-identity\route.ts
+26	features\student-document-extraction\lib\build-history-save-payload.ts
+25	features\student-document-extraction\hooks\use-session-student-selection.ts
+25	lib\documents\document-name.ts
+22	lib\validation\kk-validation.ts
+22	types\extraction.ts
+21	app\layout.tsx
+21	lib\documents\document-helpers.ts
+21	app\api\students\route.ts
+21	features\student-document-extraction\lib\documents\canonical-file-name.ts
+20	lib\students\student-completeness.ts
+18	lib\students\student-repository.ts
+17	lib\sheets\student-record-mapper.ts
+17	types\extraction-history.ts
+15	types\manual-resolution.ts
+15	types\student-detail.ts
+14	types\document-file.ts
+13	features\student-document-extraction\lib\validation\akta-schema.ts
+11	types\student.ts
+9	types\akta.ts
+9	features\student-document-extraction\types\student-save.ts
+9	components\dashboard\dashboard-content.tsx
+7	types\page-identity.ts
+5	app\page.tsx
+5	app\students\document-extraction\page.tsx
+3	lib\documents\document-file-key.ts
+1	features\student-document-extraction\index.ts
+0	app\students\[nik]\page.tsx
+0	app\students\document-extraction\[nik]\page.tsx
+0	app\[nik]\page.tsx
+0	app\api\students\[rowIndex]\route.ts
+
+===== PACKAGE.JSON =====
+{
+  "name": "automation-3",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run format:check && tsc --noEmit && npm run test"
+  },
+  "dependencies": {
+    "@google/genai": "^2.17.0",
+    "google-spreadsheet": "^5.3.0",
+    "next": "16.3.0",
+    "pdf-lib": "^1.17.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
+  }
+}
+
+===== CHECK =====
+
+> automation-3@0.1.0 check
+> npm run lint && npm run format:check && tsc --noEmit && npm run test
+
+
+> automation-3@0.1.0 lint
+> eslint .
+
+
+C:\Users\bawah\Documents\app\automation-3\features\student-document-extraction\components\student-profile.tsx
+  146:9  warning  'excellentSubjectCount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  148:9  warning  'scoreRange' is assigned a value but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\bawah\Documents\app\automation-3\features\student-document-extraction\student-document-extraction-feature.tsx
+  428:52  warning  'activeModelUsedAkta' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+G£û 3 problems (0 errors, 3 warnings)
+
+
+> automation-3@0.1.0 format:check
+> prettier --check .
+
+Checking formatting...
+
+[[31merror[39m] Unable to read file "PROJECT_AUDIT_SNAPSHOT.txt":
+[[31merror[39m] EBUSY: resource busy or locked, open 'C:\Users\bawah\Documents\app\automation-3\PROJECT_AUDIT_SNAPSHOT.txt'
+All matched files use Prettier code style!
+
+===== TODO / FIXME / ESLINT DISABLE =====
+
+===== FEATURE IMPORTS =====
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+
+import DashboardContent from "@/components/dashboard/dashboard-content";
+import DashboardLayout from "@/components/dashboard/dashboard-layout";
+import type { StudentDomainTab } from "@/components/dashboard/student-domain-header";
+import StudentDomainHeader from "@/components/dashboard/student-domain-header";
+
+import { useSaveFeedback } from "@/hooks/use-save-feedback";
+import { useStudents } from "@/hooks/use-students";
+
+import { getStudentDetail } from "@/lib/api/students";
+import { getDocumentFileKey } from "@/lib/documents/document-file-key";
+import { dedupeDocumentFiles, toNameCase } from "@/lib/documents/document-helpers";
+import { extractStudentNameFromFilename } from "@/lib/documents/document-name";
+import { createFileStudentMatch } from "@/lib/students/file-student-matcher";
+import { normalizeStudentName } from "@/lib/students/student-matcher";
+import { getStudentRouteView, setStudentUrl } from "@/lib/students/student-url";
+
+import PendingUploadTray from "@/features/student-document-extraction/components/pending-upload-tray";
+import StudentProfile from "@/features/student-document-extraction/components/student-profile";
+import StudentSidebar from "@/features/student-document-extraction/components/student-sidebar";
+
+import { useDocumentExtraction } from "@/features/student-document-extraction/hooks/use-document-extraction";
+import { useDocumentFiles } from "@/features/student-document-extraction/hooks/use-document-files";
+import { useExtractionHistory } from "@/features/student-document-extraction/hooks/use-extraction-history";
+import { useFileStudentResolution } from "@/features/student-document-extraction/hooks/use-file-student-resolution";
+import { usePendingDocumentExtraction } from "@/features/student-document-extraction/hooks/use-pending-document-extraction";
+import { useSessionHistorySync } from "@/features/student-document-extraction/hooks/use-session-history-sync";
+import { useSessionReadiness } from "@/features/student-document-extraction/hooks/use-session-readiness";
+import { useSessionStudentSelection } from "@/features/student-document-extraction/hooks/use-session-student-selection";
+import { useSessionUrlSync } from "@/features/student-document-extraction/hooks/use-session-url-sync";
+import { useStudentDetailBaseline } from "@/features/student-document-extraction/hooks/use-student-detail-baseline";
+import { useStudentSave } from "@/features/student-document-extraction/hooks/use-student-save";
+import { useStudentUrlRestore } from "@/features/student-document-extraction/hooks/use-student-url-restore";
+
+import { getActiveDocumentView } from "@/features/student-document-extraction/lib/active-document-view";
+import { analyzeUploadStudentFilenames } from "@/features/student-document-extraction/lib/analyze-upload-student-filenames";
+import { buildHistorySavePayload } from "@/features/student-document-extraction/lib/build-history-save-payload";
+import { buildDocumentDisplayFiles } from "@/features/student-document-extraction/lib/document-display-files";
+import { planDocumentRemoval } from "@/features/student-document-extraction/lib/document-removal-planner";
+import { createCanonicalFileName } from "@/features/student-document-extraction/lib/documents/canonical-file-name";
+import { preprocessUploadFiles } from "@/features/student-document-extraction/lib/documents/preprocess-upload-files";
+import { getPendingUploadBatchState } from "@/features/student-document-extraction/lib/get-pending-upload-batch-state";
+import { getUploadFastPathState } from "@/features/student-document-extraction/lib/get-upload-fast-path-state";
+import { getSessionDocumentState } from "@/features/student-document-extraction/lib/session-document-state";
+import { buildSessionSavePayload } from "@/features/student-document-extraction/lib/session-save-payload";
+import { getStudentFileMembership } from "@/features/student-document-extraction/lib/student-file-membership";
+import { planUploadSessionMerge } from "@/features/student-document-extraction/lib/upload-session-planner";
+
+import type { StudentRecord } from "@/types/student";
+
+export default function StudentDocumentExtractionFeature() {
+  const pathname = usePathname();
+  const activeDomainTab: StudentDomainTab = getStudentRouteView(pathname);
+
+  const [isPreprocessing, setIsPreprocessing] = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState("");
+  const [selectedStudentRow, setSelectedStudentRow] = useState<number | null>(null);
+  const [savingStudentId, setSavingStudentId] = useState("");
+  const [detectedFileKeys, setDetectedFileKeys] = useState<string[]>([]);
+  const [detectedStudentRowIndexes, setDetectedStudentRowIndexes] = useState<number[]>([]);
+  const [fileStudentScopes, setFileStudentScopes] = useState<Record<string, number[]>>({});
+  const [pendingUploadFileKeys, setPendingUploadFileKeys] = useState<string[]>([]);
+
+  const { setTemporarySaveFeedback } = useSaveFeedback();
+
+  const studentRequestIdRef = useRef(0);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const navigateToProfileAfterUploadRef = useRef(false);
+
+  const {
+    isExtracting,
+    resultKk,
+    resultAkta,
+    modelUsedKk,
+    modelUsedAkta,
+    processedFileKeys,
+    failedFileKeys,
+    documentTypes,
+    fileExtractions,
+    extract,
+    removeFileExtraction,
+    restore,
+    reset,
+  } = useDocumentExtraction();
+
+  const { history, addOrUpdateHistory, markAsSaved } = useExtractionHistory();
+  const { students, loadingStudents, studentError, refreshStudents } = useStudents();
+  const { saving: savingAll, save } = useStudentSave();
+  const { files, clearFiles, replaceFiles } = useDocumentFiles();
+
+  const historyMap = useMemo(() => new Map(history.map((item) => [item.id, item])), [history]);
+  const historyRef = useRef(history);
+  const [filenameMatchIssues, setFilenameMatchIssues] = useState<
+    Record<string, { status: "not-found"; detectedName: string }>
+  >({});
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  const currentFileKeys = useMemo(() => files.map((file) => getDocumentFileKey(file)), [files]);
+  const currentFileKeySet = useMemo(() => new Set(currentFileKeys), [currentFileKeys]);
+  const hasUnsavedPending = files.length > 0;
+
+  const {
+    fileStudentMatches,
+    setFileStudentMatches,
+    aiMatchingFileKeys,
+    isAiMatching,
+    manualTasksByFile,
+    manualTaskResolutions,
+    fileResolutionComplete,
+    clearResolutionState,
+    invalidateAllAiTasks,
+    invalidateAiTasksForFile,
+    resolveFileStudent,
+    ignoreFileStudent,
+  } = useFileStudentResolution({ currentFileKeys, fileExtractions, students });
+
+  useEffect(() => {
+    const processedSet = new Set(processedFileKeys);
+    let active = true;
+
+    void Promise.resolve().then(() => {
+      if (!active) return;
+
+      setFilenameMatchIssues((previous) => {
+        const next = { ...previous };
+        let changed = false;
+
+        currentFileKeys.forEach((fileKey) => {
+          if (!processedSet.has(fileKey)) return;
+
+          const extraction = fileExtractions[fileKey];
+          if (!extraction) return;
+
+          const detectedName = extraction.akta?.nama_anak?.trim() ?? "";
+
+          if (!detectedName) return;
+
+          const normalizedDetectedName = normalizeStudentName(detectedName);
+
+          const exactStudents = students.filter(
+            (student) => normalizeStudentName(student.nama) === normalizedDetectedName,
+          );
+
+          const prefixStudents =
+            exactStudents.length === 0
+              ? students.filter((student) =>
+                  normalizeStudentName(student.nama).startsWith(`${normalizedDetectedName} `),
+                )
+              : [];
+
+          const registered = exactStudents.length === 1 || prefixStudents.length === 1;
+
+          if (!registered) {
+            const currentIssue = next[fileKey];
+
+            if (
+              currentIssue?.status !== "not-found" ||
+              normalizeStudentName(currentIssue.detectedName) !== normalizedDetectedName
+            ) {
+              next[fileKey] = { status: "not-found", detectedName: toNameCase(detectedName) };
+
+              changed = true;
+            }
+
+            return;
+          }
+
+          if (next[fileKey]) {
+            delete next[fileKey];
+            changed = true;
+          }
+        });
+
+
+===== DONE =====

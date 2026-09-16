@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { classifyDocument } from "@/features/student-document-extraction/lib/extraction/document-classifier";
+import { classifyDocument } from "@/features/student/lib/extraction/document-classifier";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 

@@ -1,1 +1,0 @@
-export { default as StudentDocumentExtractionFeature } from "./student-document-extraction-feature";

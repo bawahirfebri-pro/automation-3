@@ -5,7 +5,7 @@ interface DashboardHeaderProps {
 
 export default function DashboardHeader({
   sectionLabel = "Murid",
-  pageLabel = "Dokumen",
+  pageLabel = "Profile",
 }: DashboardHeaderProps) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200/70 bg-[#FBFBFB] px-4">
